@@ -167,6 +167,10 @@
             <button type="button" id="bSautMoins">⏪ 10 s</button>
             <button type="button" id="bSautPlus">10 s ⏩</button>
           </div>
+          <div id="blocPageTel" class="cache">
+            <label for="champPageTel">Aller à la page <span id="totalPages"></span></label>
+            <div class="rangee"><input id="champPageTel" type="number" min="1" step="1" inputmode="numeric" autocomplete="off"><button type="button" id="bAllerPageTel" class="principal">Aller</button></div>
+          </div>
           <label for="champMsg">Message à l’écran</label>
           <div class="rangee"><input id="champMsg" type="text" maxlength="500" autocomplete="off"><button type="button" id="bMsg">Envoyer</button></div>
         </div>
@@ -189,12 +193,17 @@
           <div class="rangee"><button type="button" id="bAjoutFichier">Ajouter un fichier (image, PDF, HTML, vidéo)</button></div>
           <input type="file" id="favFichier" class="visuel-cache" accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.html,.htm,.mp4,.webm" autocomplete="off" tabindex="-1" aria-hidden="true">
           <p class="petit">Appuyer sur un favori l’envoie au PC (25 Mo au plus par fichier).</p>
+          <h2>Suggestions</h2>
+          <p class="petit">« ★ » ajoute aux favoris, « Ouvrir » l’affiche tout de suite sur le PC.</p>
+          <div id="suggestions"></div>
         </div>
         <div id="p-opt" class="panneau-menu cache">
           <label for="optCote">Boutons et menus</label>
           <select id="optCote" autocomplete="off"><option value="droite">À droite (laser à gauche)</option><option value="gauche">À gauche (laser à droite)</option></select>
           <label for="optMode">Laser</label>
-          <select id="optMode" autocomplete="off"><option value="direct">Direct : le laser suit mon doigt</option><option value="relatif">Pavé : le doigt déplace le laser, comme une souris</option></select>
+          <select id="optMode" autocomplete="off"><option value="relatif">Souris : le doigt déplace le laser, sans viser (conseillé)</option><option value="direct">Direct : le laser va là où je touche</option></select>
+          <label for="optOrient">Orientation de la télécommande</label>
+          <select id="optOrient" autocomplete="off"><option value="paysage">Paysage (tourne le téléphone)</option><option value="portrait">Portrait</option></select>
           <label class="case"><input type="checkbox" id="optTap" autocomplete="off"> Un appui bref = clic gauche</label>
           <div class="rangee"><button type="button" id="bPleinEcran">Plein écran et paysage</button></div>
           <h2>Mise à jour</h2>
@@ -242,6 +251,7 @@
 <script src="js/config.js"></script>
 <script src="js/crypto.js"></script>
 <script src="js/proto.js"></script>
+<script src="js/suggestions.js"></script>
 <script src="js/transfert.js"></script>
 <script src="js/remote.js"></script>
 <script src="js/pwa.js"></script>

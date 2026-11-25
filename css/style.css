@@ -153,14 +153,17 @@ body.tele-actif .appli { max-width: none; padding: .5rem; }
 .liste-contenus li button.nom { flex: 1; min-width: 0; }
 label.case { display: flex; align-items: center; gap: .5rem; font-weight: 600; }
 label.case input { width: 1.4rem; height: 1.4rem; }
-@media (orientation: landscape) and (max-height: 640px) {
-  .tele { flex-direction: row; height: calc(100dvh - 1rem); align-items: stretch; }
-  .tele.inverse { flex-direction: row-reverse; }
-  .zone-laser { flex: 1 1 62%; }
-  .zone-centre { flex: 1; height: auto; min-height: 0; }
-  .menu { flex: 0 0 36%; max-width: 360px; overflow-y: auto; }
-  .barre-clic button { min-height: 44px; }
-}
+/* Disposition « paysage » : classe .h posée par le script (téléphone à plat, ou affichage pivoté) */
+.tele.h { flex-direction: row; height: calc(100dvh - 1rem); align-items: stretch; }
+.tele.h.inverse { flex-direction: row-reverse; }
+.tele.h .zone-laser { flex: 1 1 62%; }
+.tele.h .zone-centre { flex: 1; height: auto; min-height: 0; }
+.tele.h .menu { flex: 0 0 36%; max-width: 360px; overflow-y: auto; }
+.tele.h .barre-clic button { min-height: 44px; }
+/* Affichage pivoté d’un quart de tour (téléphone tenu en portrait, mode Paysage) */
+.tele.pivote { position: fixed; top: 0; left: 0; z-index: 5; margin: 0; padding: .5rem; background: var(--clair); transform-origin: 0 0; transform: translateX(var(--lw, 100vw)) rotate(90deg); }
+#suggestions h3 { margin: .75rem 0 .3rem; font-size: 1rem; color: var(--ardoise); }
+
 /* En télécommande, les messages passent par-dessus (ils ne prennent pas de place) */
 body.tele-actif #msgGlobal, body.tele-actif #bandeauMaj { position: fixed; left: .5rem; right: .5rem; bottom: .5rem; z-index: 30; margin: 0; padding: .5rem .75rem; background: #fff; border-radius: 10px; box-shadow: 0 2px 8px rgba(31, 41, 55, .35); }
 body.tele-actif #msgGlobal:empty, body.tele-actif #bandeauMaj.cache { display: none; }

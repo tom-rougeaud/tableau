@@ -32,6 +32,7 @@
     fermer: { champs: ["i"], ok: function (m) { return entier(m.i, 0, 199); } },
     zoom:   { champs: ["v"], ok: function (m) { return nombre(m.v, 0.25, 5); } },
     lecture: { champs: ["on"], ok: function (m) { return typeof m.on === "boolean"; } },
+    page:   { champs: ["v"], ok: function (m) { return entier(m.v, 1, 100000); } },
     saut:   { champs: ["v"], ok: function (m) { return nombre(m.v, -3600, 3600); } },
     laser:  { champs: ["x", "y", "on"], ok: function (m) { return nombre(m.x, 0, 1) && nombre(m.y, 0, 1) && typeof m.on === "boolean"; } },
     clic:   { champs: ["x", "y", "b"], ok: function (m) { return nombre(m.x, 0, 1) && nombre(m.y, 0, 1) && (m.b === "g" || m.b === "d"); } },

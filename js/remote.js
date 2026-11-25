@@ -77,6 +77,7 @@
     VUES.forEach(function (v) { $("vue" + v).classList.toggle("cache", v !== nom); });
     document.body.setAttribute("data-vue", nom.toLowerCase());
     document.body.classList.toggle("tele-actif", nom === "Telecommande");   // plein écran sans en-tête ni pied
+    if (typeof orienter === "function" && prefs) orienter();
     window.scrollTo(0, 0);
   }
   function msg(id, texte, erreur) {
@@ -271,7 +272,7 @@
   // ============================================================
   // 3) Télécommande (paysage : aperçu + laser d’un côté, menus de l’autre)
   // ============================================================
-  var GAIN_RELATIF = 1.6;                      // vitesse du pointeur en mode « pavé » (relatif)
+  var GAIN_RELATIF = 2.2;                      // vitesse du pointeur en mode « pavé » (relatif)
   var APERCU_RELANCE_MS = 5000;                // le PC n’envoie l’aperçu que si on le redemande
   var MAX_FAVORIS = 100, MAX_FICHIER = 25 * 1024 * 1024, PAUSE_BLOC_MS = 40;
   var MIME_PAR_EXT = { pdf: "application/pdf", png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif",
@@ -282,16 +283,16 @@
   // ---------- Préférences (stockage protégé) ----------
   function nettoyerPrefs(o) {
     if (!o || typeof o !== "object") return null;
-    return { cote: o.cote === "gauche" ? "gauche" : "droite", mode: o.mode === "relatif" ? "relatif" : "direct", tap: o.tap === true };
+    return { cote: o.cote === "gauche" ? "gauche" : "droite", mode: o.mode === "direct" ? "direct" : "relatif", tap: o.tap === true, orient: o.orient === "portrait" ? "portrait" : "paysage" };
   }
   function lirePrefs() {
-    var p = null; try { p = nettoyerPrefs(JSON.parse(lire("prefs") || "null")); } catch (e) { /* valeurs par défaut */ }
-    return p || { cote: "droite", mode: "direct", tap: false };
+    var p = null; try { p = nettoyerPrefs(JSON.parse(lire("prefs2") || "null")); } catch (e) { /* valeurs par défaut */ }
+    return p || { cote: "droite", mode: "relatif", tap: false, orient: "paysage" };
   }
   function appliquerPrefs() {
     $("tele").classList.toggle("inverse", prefs.cote === "gauche");
-    $("optCote").value = prefs.cote; $("optMode").value = prefs.mode; $("optTap").checked = prefs.tap;
-    ecrire("prefs", JSON.stringify(prefs));
+    $("optCote").value = prefs.cote; $("optMode").value = prefs.mode; $("optTap").checked = prefs.tap; $("optOrient").value = prefs.orient;
+    ecrire("prefs2", JSON.stringify(prefs)); orienter();
   }
 
   // ---------- Ouverture / fermeture ----------
@@ -363,11 +364,15 @@
     }
     var txt = etat.pages ? "Page " + etat.page + " sur " + etat.pages : (etat.cur >= 0 ? "Contenu " + (etat.cur + 1) + " sur " + etat.items.length : "Aucun contenu ouvert");
     var cour = etat.cur >= 0 ? etat.items[etat.cur] : null;
-    if (cour && !etat.cl && (cour.k === "url" || cour.k === "ecran" || cour.k === "pdf" || cour.k === "image")) {
+    if (cour && cour.k === "url" && cour.n === "YouTube") txt += " · lecture/pause et ±10 s disponibles (onglet Navigation)";
+    else if (cour && !etat.cl && (cour.k === "url" || cour.k === "ecran" || cour.k === "pdf" || cour.k === "image")) {
       txt += cour.k === "url" ? " · clic impossible sur ce site (laser seulement)" : " · laser seulement";
     }
     info.textContent = txt;
     $("aucunOnglet").classList.toggle("cache", etat.items.length > 0);
+    var pdf = etat.pages > 1;
+    $("blocPageTel").classList.toggle("cache", !pdf);
+    if (pdf) { $("totalPages").textContent = "(1 à " + etat.pages + ", actuelle : " + etat.page + ")"; $("champPageTel").max = String(etat.pages); }
     etat.items.forEach(function (it, i) {
       var li = document.createElement("li");
       var nom = creerBouton((ICONE_GENRE[it.k] || "•") + " " + (it.o === "tel" ? "📱 " : "🖥️ ") + it.n, "Afficher : " + it.n, function () { envoyer({ c: "ouvrir", i: i }); }, "nom");
@@ -409,6 +414,13 @@
   lie("bSautPlus", function () { envoyer({ c: "saut", v: 10 }); });
   lie("bMsg", function () { var t = $("champMsg").value.trim(); if (t) { envoyer({ c: "message", v: t.slice(0, 500) }); $("champMsg").value = ""; } });
   lie("bToutFermer", function () { envoyer({ c: "toutFermer" }); });
+  function allerPageTel() {
+    var v = parseInt($("champPageTel").value, 10), max = (etat && etat.pages) || 0;
+    if (!max || !(v >= 1)) { msg("msgGlobal", "Écris un numéro de page (1 à " + max + ").", true); return; }
+    envoyer({ c: "page", v: Math.min(v, max) }); msg("msgGlobal", ""); $("champPageTel").blur();
+  }
+  lie("bAllerPageTel", allerPageTel);
+  $("champPageTel").addEventListener("keydown", function (e) { if (e.key === "Enter") allerPageTel(); });
   lie("bClicG", function () { envoyer({ c: "clic", x: lx, y: ly, b: "g" }); });
   lie("bClicD", function () { envoyer({ c: "clic", x: lx, y: ly, b: "d" }); });
   lie("bMasquer", function () { $("croix").classList.add("cache"); envoyer({ c: "laser", x: 0, y: 0, on: false }); });
@@ -438,10 +450,25 @@
   $("champUrl").addEventListener("keydown", function (e) { if (e.key === "Enter") $("bUrl").click(); });
   $("champUrl").addEventListener("focus", function () { if (!$("champUrl").value) $("champUrl").value = "https://"; });
 
+  // ---------- Orientation : paysage par défaut ----------
+  // Si le téléphone est tenu en portrait et que « Paysage » est choisi, l’affichage est pivoté d’un quart de tour
+  // (le navigateur ne permet pas toujours de forcer l’orientation) ; tourne le téléphone pour l’avoir à plat.
+  var pivotActif = false;
+  function orienter() {
+    var t = $("tele"), actif = document.body.classList.contains("tele-actif");
+    var portrait = window.innerHeight > window.innerWidth;
+    pivotActif = actif && prefs.orient === "paysage" && portrait;
+    t.classList.toggle("pivote", pivotActif);
+    t.classList.toggle("h", actif && (pivotActif || (!portrait && window.innerHeight <= 640)));
+    if (pivotActif) { t.style.width = window.innerHeight + "px"; t.style.height = window.innerWidth + "px"; t.style.setProperty("--lw", window.innerWidth + "px"); }
+    else { t.style.width = ""; t.style.height = ""; }
+  }
+
   // ---------- Zone d’aperçu et pointeur laser ----------
   var pave = $("pave"), croix = $("croix");
   var depart = null, dernierEnvoiLaser = 0;
   function ajuster() {                                              // la zone épouse le format de l’écran du PC
+    orienter();
     var c = $("zoneCentre"), cw = c.clientWidth, ch = c.clientHeight; if (!cw || !ch) return;
     var w = cw / ch > ratioPc ? ch * ratioPc : cw, h = w / ratioPc;
     pave.style.width = Math.floor(w) + "px"; pave.style.height = Math.floor(h) + "px";
@@ -452,27 +479,34 @@
   });
   window.addEventListener("resize", ajuster);
   window.addEventListener("orientationchange", function () { setTimeout(ajuster, 250); });
+  $("optOrient").addEventListener("change", function () { prefs.orient = $("optOrient").value === "portrait" ? "portrait" : "paysage"; appliquerPrefs(); ajuster(); });
   if (window.ResizeObserver) new ResizeObserver(ajuster).observe($("zoneCentre"));
 
   function bornes(v) { return Math.min(1, Math.max(0, v)); }
   function placerCroix() { croix.style.left = (lx * 100) + "%"; croix.style.top = (ly * 100) + "%"; croix.classList.remove("cache"); }
   function envoyerLaser() { envoyer({ c: "laser", x: lx, y: ly, on: true }); }
-  function posDansZone(ev) { var r = pave.getBoundingClientRect(); return { x: bornes((ev.clientX - r.left) / r.width), y: bornes((ev.clientY - r.top) / r.height) }; }
+  // Position du doigt dans la zone, de 0 à 1, dans le repère de l’aperçu (même quand l’affichage est pivoté).
+  function posDansZone(ev) {
+    var r = pave.getBoundingClientRect();
+    if (pivotActif) return { x: bornes((ev.clientY - r.top) / r.height), y: bornes((r.right - ev.clientX) / r.width) };
+    return { x: bornes((ev.clientX - r.left) / r.width), y: bornes((ev.clientY - r.top) / r.height) };
+  }
   pave.addEventListener("contextmenu", function (e) { e.preventDefault(); });
   pave.addEventListener("pointerdown", function (ev) {
     ev.preventDefault(); try { pave.setPointerCapture(ev.pointerId); } catch (e) { /* rien */ }
-    depart = { t: Date.now(), cx: ev.clientX, cy: ev.clientY, px: ev.clientX, py: ev.clientY, bouge: false };
-    if (prefs.mode === "direct") { var p = posDansZone(ev); lx = p.x; ly = p.y; }
+    var p0 = posDansZone(ev);
+    depart = { t: Date.now(), cx: ev.clientX, cy: ev.clientY, px: p0.x, py: p0.y, bouge: false };
+    if (prefs.mode === "direct") { lx = p0.x; ly = p0.y; }
     placerCroix(); envoyerLaser();
   });
   pave.addEventListener("pointermove", function (ev) {
     if (!depart) return;
     if (Math.abs(ev.clientX - depart.cx) + Math.abs(ev.clientY - depart.cy) > 12) depart.bouge = true;
-    if (prefs.mode === "direct") { var p = posDansZone(ev); lx = p.x; ly = p.y; }
-    else {                                                          // pavé : déplacement relatif, comme un pavé tactile
-      var r = pave.getBoundingClientRect();
-      lx = bornes(lx + (ev.clientX - depart.px) / r.width * GAIN_RELATIF); ly = bornes(ly + (ev.clientY - depart.py) / r.height * GAIN_RELATIF);
-      depart.px = ev.clientX; depart.py = ev.clientY;
+    var p = posDansZone(ev);
+    if (prefs.mode === "direct") { lx = p.x; ly = p.y; }
+    else {                                                          // souris : déplacement relatif, sans avoir à viser
+      lx = bornes(lx + (p.x - depart.px) * GAIN_RELATIF); ly = bornes(ly + (p.y - depart.py) * GAIN_RELATIF);
+      depart.px = p.x; depart.py = p.y;
     }
     placerCroix();
     var now = Date.now(); if (now - dernierEnvoiLaser < DELAI_LASER_MS) return; dernierEnvoiLaser = now;
@@ -492,11 +526,43 @@
   function chargerFavoris() {
     return idbGet("favoris").then(function (l) {
       favoris = Array.isArray(l) ? l.filter(function (f) { return f && typeof f.nom === "string" && (f.t === "lien" || f.t === "fichier"); }).slice(0, MAX_FAVORIS) : [];
+      // Premier lancement : les favoris de départ (casier, manuels, TradMaths, etc.) sont ajoutés une seule fois.
+      var S = window.TV_SUGGESTIONS;
+      if (!lire("fav_init") && !favoris.length && S) {
+        S.parDefaut.forEach(function (u) { var n = nomSuggestion(u) || new URL(u).hostname; favoris.push({ id: aleatoire(), t: "lien", nom: n, url: u }); });
+        ecrire("fav_init", "1"); sauverFavoris();
+      }
       dessinerFavoris();
     });
   }
   function sauverFavoris() { return idbPut("favoris", favoris); }
+  // Suggestions (données dans js/suggestions.js) : « ★ » ajoute aux favoris, « Ouvrir » affiche sur le PC.
+  function nomSuggestion(url) {
+    var S = window.TV_SUGGESTIONS, nom = null;
+    if (S) S.groupes.forEach(function (g) { g.sites.forEach(function (s) { if (s.url === url) nom = s.nom; }); });
+    return nom;
+  }
+  function dessinerSuggestions() {
+    var S = window.TV_SUGGESTIONS, zone = $("suggestions"); vider(zone); if (!S) return;
+    var deja = {}; favoris.forEach(function (f) { if (f.t === "lien") deja[f.url] = true; });
+    S.groupes.forEach(function (g) {
+      var h = document.createElement("h3"); h.textContent = g.titre; zone.appendChild(h);
+      var ul = document.createElement("ul"); ul.className = "liste-contenus";
+      g.sites.forEach(function (s) {
+        var li = document.createElement("li");
+        li.appendChild(creerBouton("Ouvrir · " + s.nom, "Afficher sur le PC : " + s.nom, function () { envoyer({ c: "url", v: s.url }); }, "nom"));
+        var ajoute = !!deja[s.url];
+        var b = creerBouton(ajoute ? "✓" : "★", ajoute ? "Déjà dans les favoris : " + s.nom : "Ajouter aux favoris : " + s.nom, function () {
+          if (deja[s.url] || favoris.length >= MAX_FAVORIS) return;
+          favoris.push({ id: aleatoire(), t: "lien", nom: s.nom, url: s.url }); sauverFavoris().then(dessinerFavoris);
+        });
+        b.disabled = ajoute; li.appendChild(b); ul.appendChild(li);
+      });
+      zone.appendChild(ul);
+    });
+  }
   function dessinerFavoris() {
+    dessinerSuggestions();
     var ul = $("listeFavoris"); vider(ul);
     $("aucunFavori").classList.toggle("cache", favoris.length > 0);
     favoris.forEach(function (f) {
@@ -608,7 +674,7 @@
   $("bEffacer").addEventListener("click", function () {
     if (!confirm("Effacer toutes les données de cet appareil et se déconnecter ?")) return;
     idbDel("courante"); idbDel("favoris"); favoris = [];
-    ["duree", "install", "auth", "prefs"].forEach(retirer);
+    ["duree", "install", "auth", "prefs", "prefs2", "fav_init"].forEach(retirer);
     try { Object.keys(localStorage).forEach(function (k) { if (k.indexOf(PREFIXE) === 0) localStorage.removeItem(k); }); } catch (e) { /* rien */ }
     deconnecter().then(function () { msg("msgConnexion", "Données effacées."); });
   });

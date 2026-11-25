@@ -83,3 +83,10 @@ Limites assumées :
 - `allow-same-origin` sur les sites ouverts en cadre (corrige l’erreur LockManager du casier) ; les pages HTML locales gardent un cadre sans cette permission.
 - Mises à jour : service worker réseau d’abord, activation immédiate ; recherche toutes les 24 h, à la demande, ou forcée (cache vidé).
 - Non testé : vrais appareils, Realtime réel, partage d’écran (getDisplayMedia), iPhone, clavier du téléphone, gros fichiers.
+
+## 10. Version 1.2 (25/11/2026)
+- Télécommande en paysage par défaut (affichage pivoté si le téléphone est tenu en portrait ; bouton « Portrait » dans Options) ; laser en mode « souris » par défaut (déplacement relatif, gain 2,2).
+- Aller à la page : champ sur le PC et sur le téléphone, commande `page` (PDF de plusieurs pages).
+- YouTube intégré pilotable (lecture, pause, ±10 s) par l’API officielle du lecteur.
+- Favoris de départ ajoutés une fois (casier, manuels, TradMaths, Allophones 1, Abel’s Run, YouTube) + suggestions interactives (données dans `js/suggestions.js`).
+- Limite de fond : un site extérieur ne peut être ni cliqué, ni saisi, ni défilé à distance depuis une page web (règle du navigateur). Seuls les sites du même domaine (apps de Tom) et les pages HTML locales sont pilotables à 100 %. Pistes si besoin : proxy de réécriture (serveur à héberger, risque de sécurité) ou bureau à distance.

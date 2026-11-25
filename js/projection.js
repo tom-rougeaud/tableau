@@ -123,9 +123,10 @@
     }
     var nom = u.hostname, lien = u.href, yt = adresseYoutube(u);
     if (yt === "refus") { flash("YouTube : colle l’adresse d’une vidéo, ou utilise « Afficher un onglet du navigateur »."); return false; }
-    if (yt) { lien = yt; nom = "YouTube"; }
+    var estYt = false;
+    if (yt) { lien = yt + "&enablejsapi=1&origin=" + encodeURIComponent(location.origin); nom = "YouTube"; estYt = true; }
     else if (SITES_REFUSANT.test(u.hostname)) flash("Ce site refuse souvent l’affichage dans un cadre. S’il reste vide, utilise « Afficher un onglet du navigateur ».");
-    contenus.push({ n: nom.slice(0, 120), k: "url", o: origine, blob: null, url: lien });
+    contenus.push({ n: nom.slice(0, 120), k: "url", o: origine, blob: null, url: lien, yt: estYt, ytT: 0 });
     ouvrir(contenus.length - 1);
     return true;
   }
@@ -201,7 +202,11 @@
       fu.setAttribute("sandbox", "allow-scripts allow-same-origin allow-forms allow-popups allow-presentation");
       fu.setAttribute("allow", "autoplay; fullscreen; encrypted-media; picture-in-picture");
       fu.setAttribute("referrerpolicy", "no-referrer"); fu.title = c.n; fu.src = c.url;
-      fu.addEventListener("load", function () { c.direct = fenetreAccessible(fu) !== null; envoyerEtatPlusTard(); });
+      fu.addEventListener("load", function () {
+        c.direct = fenetreAccessible(fu) !== null;
+        if (c.yt) ytEcoute();                                   // lecteur YouTube : on s’abonne à son état
+        envoyerEtatPlusTard();
+      });
       scene.appendChild(fu);
     }
     majTout();
@@ -234,7 +239,7 @@
       return pdfjsLib.getDocument({ data: new Uint8Array(buf), isEvalSupported: false, enableXfa: false }).promise;
     }).then(function (doc) {
       if (mon !== jetonRendu) { doc.destroy(); return; }
-      pdfDoc = doc; pages = doc.numPages; page = 1; dessinerPdf(); envoyerEtatPlusTard();
+      pdfDoc = doc; pages = doc.numPages; page = 1; dessinerPdf(); majBlocPage(); envoyerEtatPlusTard();
     }).catch(function () { flash("Ce PDF n’a pas pu être ouvert."); });
   }
   function dessinerPdf() {
@@ -275,7 +280,13 @@
       ul.appendChild(li);
     });
   }
-  function majTout() { majPanneau(); vide.style.display = contenus.length ? "none" : "flex"; envoyerEtatPlusTard(); }
+  // Champ « Aller à la page » du panneau (visible seulement pour un PDF de plusieurs pages).
+  function majBlocPage() {
+    var c = contenuCourant(), oui = !!(c && c.k === "pdf" && pages > 1);
+    $("blocPage").classList.toggle("cache", !oui);
+    if (oui) { $("champPage").max = String(pages); $("infoPage").textContent = "Page " + page + " sur " + pages; }
+  }
+  function majTout() { majBlocPage(); majPanneau(); vide.style.display = contenus.length ? "none" : "flex"; envoyerEtatPlusTard(); }
 
   // ============================================================
   // 2) Exécution des commandes (déjà validées par TVProto)
@@ -301,11 +312,11 @@
     var c = contenuCourant(), w;
     switch (m.c) {
       case "suivant":
-        if (c && c.k === "pdf" && page < pages) { page++; dessinerPdf(); }
+        if (c && c.k === "pdf" && page < pages) { page++; dessinerPdf(); majBlocPage(); }
         else if (!c || c.k !== "pdf") ouvrir(Math.min(cur + 1, contenus.length - 1));
         break;
       case "precedent":
-        if (c && c.k === "pdf" && page > 1) { page--; dessinerPdf(); }
+        if (c && c.k === "pdf" && page > 1) { page--; dessinerPdf(); majBlocPage(); }
         else if (!c || c.k !== "pdf") ouvrir(Math.max(cur - 1, 0));
         break;
       case "contenuSuivant": ouvrir(Math.min(cur + 1, contenus.length - 1)); break;
@@ -319,11 +330,16 @@
         else if (c && (c.k === "image" || c.k === "ecran")) { var el = scene.querySelector("img,video"); if (el) el.style.transform = "scale(" + zoom + ")"; }
         break;
       case "lecture": {
+        if (c && c.yt) { ytCmd(m.on ? "playVideo" : "pauseVideo"); break; }
         var v = scene.querySelector("video");
         if (v) { if (m.on) v.play().catch(function () { /* lecture refusée par le navigateur */ }); else v.pause(); }
         break;
       }
-      case "saut": { var vv = scene.querySelector("video"); if (vv && c.k === "video") vv.currentTime = Math.max(0, vv.currentTime + m.v); break; }
+      case "page":
+        if (c && c.k === "pdf" && pages) { page = Math.min(m.v, pages); dessinerPdf(); majBlocPage(); }
+        break;
+      case "saut": {
+        if (c && c.yt) { ytCmd("seekTo", [Math.max(0, (c.ytT || 0) + m.v), true]); break; } var vv = scene.querySelector("video"); if (vv && c.k === "video") vv.currentTime = Math.max(0, vv.currentTime + m.v); break; }
       case "laser":
         if (m.on) positionLaser(m.x, m.y); else laser.style.display = "none";
         break;
@@ -361,8 +377,24 @@
     }
     envoyerEtatPlusTard();
   }
+  // ---------- Lecteur YouTube intégré : lecture / pause / ±10 s par l’API officielle (sans clic) ----------
+  var ORIGINE_YT = "https://www.youtube-nocookie.com";
+  function ytEnvoi(obj) { var fr = cadreCourant(); if (fr) { try { fr.contentWindow.postMessage(JSON.stringify(obj), ORIGINE_YT); } catch (e) { /* lecteur absent */ } } }
+  function ytCmd(f, args) { ytEnvoi({ event: "command", func: f, args: args || [] }); }
+  function ytEcoute() { ytEnvoi({ event: "listening", id: 1, channel: "widget" }); }
+  function ytMessage(e) {
+    var c = contenuCourant(), fr = cadreCourant();
+    if (!c || !c.yt || !fr || e.source !== fr.contentWindow || e.origin !== ORIGINE_YT || typeof e.data !== "string") return false;
+    var d; try { d = JSON.parse(e.data); } catch (er) { return true; }
+    if (d && d.event === "onReady") ytEcoute();
+    var info = d && (d.info || null);
+    if (info && typeof info.currentTime === "number") c.ytT = info.currentTime;
+    if (info && typeof info.playerState === "number") { var en = info.playerState === 1; if (en !== enLecture) { enLecture = en; envoyerEtatPlusTard(); } }
+    return true;
+  }
   // Réponse d’une page HTML locale : un champ de texte est-il actif ?
   window.addEventListener("message", function (e) {
+    if (ytMessage(e)) return;
     var fr = cadreCourant();
     if (!fr || e.source !== fr.contentWindow || !e.data || e.data.t !== "champ") return;
     champActif = e.data.champ === true; champVal = String(e.data.val || "").slice(0, 500);
@@ -602,6 +634,12 @@
   $("bEcran").addEventListener("click", ajouterEcran);
   $("bApercu").addEventListener("click", basculerApercuComplet);
   $("bToutFermer").addEventListener("click", toutFermer);
+  function allerPage() {
+    var v = parseInt($("champPage").value, 10), c = contenuCourant();
+    if (c && c.k === "pdf" && pages && v >= 1) { page = Math.min(v, pages); dessinerPdf(); majBlocPage(); envoyerEtatPlusTard(); }
+  }
+  $("bAllerPage").addEventListener("click", allerPage);
+  $("champPage").addEventListener("keydown", function (e) { if (e.key === "Enter") allerPage(); });
 
   // Glisser-déposer : fichiers, ou adresse (lien, ou icône à gauche de la barre d’adresse du navigateur)
   document.addEventListener("dragover", function (e) { e.preventDefault(); });

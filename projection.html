@@ -44,6 +44,11 @@
     <p class="petit">Tu peux aussi glisser une adresse ou un fichier sur la page.</p>
     <button type="button" id="bEcran">Afficher un onglet du navigateur</button>
     <button type="button" id="bApercu">Aperçu de l’écran sur le téléphone</button>
+    <div id="blocPage" class="cache">
+      <label for="champPage">Aller à la page</label>
+      <div class="rangee"><input id="champPage" type="number" min="1" step="1" inputmode="numeric" autocomplete="off"><button type="button" id="bAllerPage">Aller</button></div>
+      <p id="infoPage" class="petit"></p>
+    </div>
     <button type="button" id="bToutFermer" class="danger">Tout fermer</button>
     <p class="petit js-etat-maj" role="status" aria-live="polite"></p>
     <button type="button" class="js-chercher-maj">Rechercher une mise à jour</button>
