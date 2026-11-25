@@ -113,6 +113,9 @@
       <h1 id="tScanner">Scanner le QR code</h1>
       <video id="videoScan" class="video-scan" playsinline muted aria-label="Image de la caméra"></video>
       <p class="msg" id="msgScan" role="status" aria-live="polite"></p>
+      <p class="petit">La caméra en direct ne s’ouvre pas ? Prends plutôt une photo du QR code :</p>
+      <button type="button" id="bScanPhoto">Prendre une photo du QR code</button>
+      <input type="file" id="fichierScan" class="visuel-cache" accept="image/*" capture="environment" autocomplete="off" tabindex="-1" aria-hidden="true">
       <label for="saisieLien">Ou colle ici le lien affiché sous le QR code</label>
       <input id="saisieLien" type="text" autocomplete="off" autocapitalize="off" spellcheck="false">
       <div class="rangee">

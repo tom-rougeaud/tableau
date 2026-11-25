@@ -741,8 +741,9 @@
     }).catch(function (er) {
       arreterScan();
       var refus = er && (er.name === "NotAllowedError" || er.name === "SecurityError");
-      msg("msgScan", refus ? "Caméra refusée. Autorise-la dans les réglages du navigateur, ou colle le lien ci-dessous."
-        : "Caméra introuvable. Colle le lien ci-dessous.", true);
+      var code = er && er.name ? " (" + er.name + ")" : "";
+      msg("msgScan", (refus ? "Caméra refusée. Autorise-la dans les réglages du navigateur, ou colle le lien ci-dessous."
+        : "Caméra introuvable. Colle le lien ci-dessous.") + code + " Tu peux aussi prendre une photo du QR code.", true);
     });
   }
   // Lit une image de la caméra environ 6 fois par seconde.
@@ -776,6 +777,31 @@
   }
   $("bScanner").addEventListener("click", ouvrirScan);
   $("bScanAnnuler").addEventListener("click", quitterScan);
+  // Repli universel : photo prise avec l’appareil photo du téléphone, lue sur place (non enregistrée).
+  $("bScanPhoto").addEventListener("click", function () { $("fichierScan").value = ""; $("fichierScan").click(); });
+  $("fichierScan").addEventListener("change", function () {
+    var f = this.files && this.files[0]; if (!f) return;
+    msg("msgScan", "Lecture de la photo…");
+    var url = URL.createObjectURL(f), img = new Image();
+    img.onload = function () {
+      var texte = "";
+      // Plusieurs tailles : un QR petit ou une photo très grande se lisent mieux réduits.
+      [1200, 800, 500].some(function (max) {
+        var k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+        var w = Math.max(1, Math.round(img.naturalWidth * k)), h = Math.max(1, Math.round(img.naturalHeight * k));
+        var cv = document.createElement("canvas"); cv.width = w; cv.height = h;
+        var cx = cv.getContext("2d", { willReadFrequently: true }); cx.drawImage(img, 0, 0, w, h);
+        var r = window.jsQR && window.jsQR(cx.getImageData(0, 0, w, h).data, w, h, { inversionAttempts: "attemptBoth" });
+        if (r && r.data) { texte = r.data; return true; }
+        return false;
+      });
+      URL.revokeObjectURL(url);
+      var lien = lienDepuisTexte(texte);
+      if (lien) scanReussi(lien); else msg("msgScan", "Aucun QR code lisible. Rapproche-toi de l’écran et réessaie.", true);
+    };
+    img.onerror = function () { URL.revokeObjectURL(url); msg("msgScan", "Photo illisible. Réessaie.", true); };
+    img.src = url;
+  });
   $("bScanLien").addEventListener("click", function () {
     var lien = lienDepuisTexte($("saisieLien").value);
     if (!lien) { msg("msgScan", "Ce lien n’est pas valide. Copie-le en entier depuis l’ordinateur.", true); return; }
