@@ -521,7 +521,10 @@
     if (captureApercu) captureApercu.getTracks().forEach(function (t) { t.stop(); });
     captureApercu = null; apercuVideo.srcObject = null;
   }
-  function majBoutonApercu() { $("bApercu").textContent = captureApercu ? "Arrêter l’aperçu complet" : "Aperçu complet de l’écran sur le téléphone"; }
+  function majBoutonApercu() {
+    $("bApercu").textContent = captureApercu ? "Arrêter l’aperçu complet" : "Aperçu complet de l’écran sur le téléphone";
+    $("bApercuBarre").textContent = captureApercu ? "Aperçu actif ✓" : "Aperçu téléphone";
+  }
 
   // ============================================================
   // 4) Rattachement et pulsation
@@ -603,6 +606,7 @@
       } else if (st === "approved" && p.cles && !p.approuve) {
         p.approuve = true;
         afficherAttente(false); majStatut("Téléphone rattaché"); ouvrirSalon();
+        flash("Téléphone rattaché. Pour voir tout l’écran sur le téléphone, appuie sur « Aperçu téléphone » en haut.");
       } else if (st === "revoked") { verrouiller("Session révoquée depuis le téléphone."); return; }
       else if (st === "expired" || st === "unknown") {
         if (p.approuve) { verrouiller("Session expirée."); return; }
@@ -656,6 +660,7 @@
   $("champAdresse").addEventListener("keydown", function (e) { if (e.key === "Enter") $("bAjouterAdresse").click(); });
   $("bEcran").addEventListener("click", ajouterEcran);
   $("bApercu").addEventListener("click", basculerApercuComplet);
+  $("bApercuBarre").addEventListener("click", basculerApercuComplet);
   $("bToutFermer").addEventListener("click", toutFermer);
   function allerPage() {
     var v = parseInt($("champPage").value, 10), c = contenuCourant();

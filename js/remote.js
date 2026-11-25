@@ -296,15 +296,15 @@
   // ---------- Préférences (stockage protégé) ----------
   function nettoyerPrefs(o) {
     if (!o || typeof o !== "object") return null;
-    return { cote: o.cote === "gauche" ? "gauche" : "droite", mode: o.mode === "direct" ? "direct" : "relatif", tap: o.tap === true, orient: o.orient === "portrait" ? "portrait" : "paysage" };
+    return { cote: o.cote === "gauche" ? "gauche" : "droite", mode: o.mode === "direct" ? "direct" : "relatif", tap: o.tap === true, orient: o.orient === "portrait" ? "portrait" : "paysage", plein: o.plein !== false };
   }
   function lirePrefs() {
     var p = null; try { p = nettoyerPrefs(JSON.parse(lire("prefs2") || "null")); } catch (e) { /* valeurs par défaut */ }
-    return p || { cote: "droite", mode: "relatif", tap: false, orient: "paysage" };
+    return p || { cote: "droite", mode: "relatif", tap: false, orient: "paysage", plein: true };
   }
   function appliquerPrefs() {
     $("tele").classList.toggle("inverse", prefs.cote === "gauche");
-    $("optCote").value = prefs.cote; $("optMode").value = prefs.mode; $("optTap").checked = prefs.tap; $("optOrient").value = prefs.orient;
+    $("optCote").value = prefs.cote; $("optMode").value = prefs.mode; $("optTap").checked = prefs.tap; $("optOrient").value = prefs.orient; $("optPlein").checked = prefs.plein;
     ecrire("prefs2", JSON.stringify(prefs)); orienter();
   }
 
@@ -317,6 +317,11 @@
     salon.on("broadcast", { event: "m" }, function (e) { recevoir(e.payload); });
     salon.subscribe(function (s) { if (s === "SUBSCRIBED") { envoyer({ c: "etat" }); demanderApercu(); } });
     clearInterval(minuteurVerif); minuteurVerif = setInterval(verifierSession, DELAI_VERIF_MS);
+    // Pas d’image au bout de 8 s : on explique pourquoi (fenêtre du PC cachée, aperçu complet non activé).
+    setTimeout(function () {
+      if (session && session.id === sid && !$("apercuTexte").classList.contains("cache"))
+        $("apercuTexte").textContent = "Pas encore d’aperçu. Sur l’ordinateur, garde la page de projection visible (ni réduite, ni derrière une autre fenêtre) et appuie sur « Aperçu téléphone » en haut.";
+    }, 8000);
     // Si le PC ne répond à rien en 12 s, ses clés ne correspondent plus : on repart proprement.
     var sid = session.id;
     setTimeout(function () {
@@ -528,6 +533,20 @@
   });
   window.addEventListener("resize", ajuster);
   window.addEventListener("orientationchange", function () { setTimeout(ajuster, 250); });
+  // Plein écran : se relance au premier appui (le navigateur exige un geste) et dès qu’on en sort.
+  // Sur iPhone, Safari ne permet pas le plein écran d’une page : installer l’appli sur l’écran d’accueil.
+  function pleinEcranTel() {
+    try {
+      var el = document.documentElement;
+      if (document.fullscreenElement || document.webkitFullscreenElement) return;
+      var p = el.requestFullscreen ? el.requestFullscreen({ navigationUI: "hide" }) : (el.webkitRequestFullscreen ? el.webkitRequestFullscreen() : null);
+      if (p && p.then) p.then(function () {
+        if (prefs.orient === "paysage" && screen.orientation && screen.orientation.lock) screen.orientation.lock("landscape").catch(function () { /* non permis */ });
+      }).catch(function () { /* refusé */ });
+    } catch (e) { /* non géré : rien */ }
+  }
+  $("tele").addEventListener("pointerdown", function () { if (session && prefs.plein) pleinEcranTel(); }, true);
+  $("optPlein").addEventListener("change", function () { prefs.plein = $("optPlein").checked; appliquerPrefs(); if (prefs.plein) pleinEcranTel(); else try { if (document.exitFullscreen && document.fullscreenElement) document.exitFullscreen(); } catch (e) { /* rien */ } });
   $("optOrient").addEventListener("change", function () { prefs.orient = $("optOrient").value === "portrait" ? "portrait" : "paysage"; appliquerPrefs(); ajuster(); });
   if (window.ResizeObserver) new ResizeObserver(ajuster).observe($("zoneCentre"));
 
