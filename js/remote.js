@@ -69,13 +69,14 @@
   var rattachementEnAttente = null;   // { id, pub } lu dans le lien du QR code
   var courant = null;                 // rattachement en cours : { id, paire, pubTxt, pcPub, cles }
   var session = null;                 // session active : { id, cles, maxUntil }
-  var salon = null, etat = null, dernierN = 0, minuteurVerif = null, dernierLaser = 0, factorEnCours = null, essaisCode = 0;
+  var salon = null, etat = null, minuteurVerif = null, factorEnCours = null, essaisCode = 0;
 
   // ---------- Affichage ----------
   var VUES = ["Connexion", "Mfa", "Accueil", "Rattacher", "Telecommande"];
   function montrer(nom) {
     VUES.forEach(function (v) { $("vue" + v).classList.toggle("cache", v !== nom); });
     document.body.setAttribute("data-vue", nom.toLowerCase());
+    document.body.classList.toggle("tele-actif", nom === "Telecommande");   // plein écran sans en-tête ni pied
     window.scrollTo(0, 0);
   }
   function msg(id, texte, erreur) {
@@ -268,19 +269,46 @@
   });
 
   // ============================================================
-  // 3) Télécommande
+  // 3) Télécommande (paysage : aperçu + laser d’un côté, menus de l’autre)
   // ============================================================
+  var GAIN_RELATIF = 1.6;                      // vitesse du pointeur en mode « pavé » (relatif)
+  var APERCU_RELANCE_MS = 5000;                // le PC n’envoie l’aperçu que si on le redemande
+  var MAX_FAVORIS = 100, MAX_FICHIER = 25 * 1024 * 1024, PAUSE_BLOC_MS = 40;
+  var MIME_PAR_EXT = { pdf: "application/pdf", png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif",
+    webp: "image/webp", html: "text/html", htm: "text/html", mp4: "video/mp4", webm: "video/webm" };
+  var prefs = lirePrefs(), favoris = [], minuteurApercu = null, accepte = TVCrypto.garde();
+  var lx = 0.5, ly = 0.5, ratioPc = 16 / 9, envoiEnCours = null;
+
+  // ---------- Préférences (stockage protégé) ----------
+  function nettoyerPrefs(o) {
+    if (!o || typeof o !== "object") return null;
+    return { cote: o.cote === "gauche" ? "gauche" : "droite", mode: o.mode === "relatif" ? "relatif" : "direct", tap: o.tap === true };
+  }
+  function lirePrefs() {
+    var p = null; try { p = nettoyerPrefs(JSON.parse(lire("prefs") || "null")); } catch (e) { /* valeurs par défaut */ }
+    return p || { cote: "droite", mode: "direct", tap: false };
+  }
+  function appliquerPrefs() {
+    $("tele").classList.toggle("inverse", prefs.cote === "gauche");
+    $("optCote").value = prefs.cote; $("optMode").value = prefs.mode; $("optTap").checked = prefs.tap;
+    ecrire("prefs", JSON.stringify(prefs));
+  }
+
+  // ---------- Ouverture / fermeture ----------
   function ouvrirTelecommande() {
-    montrer("Telecommande"); etat = null; dernierN = 0; majEtat();
+    montrer("Telecommande"); etat = null; accepte = TVCrypto.garde();
+    appliquerPrefs(); majEtat(); chargerFavoris(); ajuster();
     fermerSalon();
     salon = sb.channel(session.cles.salon, { config: { broadcast: { self: false } } });
     salon.on("broadcast", { event: "m" }, function (e) { recevoir(e.payload); });
-    salon.subscribe(function (s) { if (s === "SUBSCRIBED") envoyer({ c: "etat" }); });
-    clearInterval(minuteurVerif);
-    minuteurVerif = setInterval(verifierSession, DELAI_VERIF_MS);
+    salon.subscribe(function (s) { if (s === "SUBSCRIBED") { envoyer({ c: "etat" }); demanderApercu(); } });
+    clearInterval(minuteurVerif); minuteurVerif = setInterval(verifierSession, DELAI_VERIF_MS);
+    clearInterval(minuteurApercu); minuteurApercu = setInterval(demanderApercu, APERCU_RELANCE_MS);
   }
-  function fermerSalon() { if (salon) { try { sb.removeChannel(salon); } catch (e) { /* rien */ } salon = null; } }
-
+  function fermerSalon() {
+    clearInterval(minuteurApercu); minuteurApercu = null;
+    if (salon) { try { sb.removeChannel(salon); } catch (e) { /* rien */ } salon = null; }
+  }
   // Si la session n’est plus « approuvée » en base (révoquée, expirée), on quitte.
   function verifierSession() {
     if (!session) return;
@@ -291,46 +319,88 @@
     });
   }
   function terminerLocalement(texte) {
-    fermerSalon(); clearInterval(minuteurVerif); session = null;
+    fermerSalon(); clearInterval(minuteurVerif); session = null; envoiEnCours = null;
     idbDel("courante").then(function () { msg("msgGlobal", texte || ""); return afficherAccueil(); });
   }
 
+  // ---------- Échanges chiffrés ----------
   function envoyer(m) {
-    if (!salon || !session) return;
-    TVCrypto.chiffrer(session.cles.cleTelVersPc, "tel->pc", m).then(function (d) {
-      salon.send({ type: "broadcast", event: "m", payload: { d: d } });
+    if (!salon || !session) return Promise.resolve();
+    return TVCrypto.chiffrer(session.cles.cleTelVersPc, "tel->pc", m).then(function (d) {
+      if (salon) salon.send({ type: "broadcast", event: "m", payload: { d: d } });
     });
   }
+  function demanderApercu() { if (!document.hidden) envoyer({ c: "apercu", on: true }); }
   function recevoir(payload) {
     if (!session || !payload || typeof payload.d !== "string") return;
     TVCrypto.dechiffrer(session.cles.clePcVersTel, "pc->tel", payload.d).then(function (o) {
-      if (o.n <= dernierN) return;
-      dernierN = o.n;
+      if (!accepte(o.n)) return;                     // rejeu ou message trop ancien : ignoré
+      if (o.m && o.m.c === "image") {
+        var im = TVProto.validerImage(o.m);
+        if (im) { $("apercu").src = im.d; }
+        return;
+      }
       var e = TVProto.validerEtat(o.m);
       if (e) { etat = e; majEtat(); }
     }).catch(function () { /* message illisible : ignoré */ });
   }
 
-  // Met à jour l’affichage à partir de l’état envoyé par le PC (textContent seulement).
+  // ---------- Affichage de l’état envoyé par le PC (textContent seulement) ----------
+  var ICONE_GENRE = { image: "🖼️", pdf: "📄", video: "🎬", html: "🌐", url: "🔗", ecran: "🖥️" };
+  function vider(el) { while (el.firstChild) el.removeChild(el.firstChild); }
+  function creerBouton(texte, titre, fn, classe) {
+    var b = document.createElement("button"); b.type = "button"; b.textContent = texte;
+    if (titre) { b.title = titre; b.setAttribute("aria-label", titre); }
+    if (classe) b.className = classe;
+    b.addEventListener("click", fn); return b;
+  }
   function majEtat() {
-    var info = $("infoEtat"), ul = $("listeContenus");
-    while (ul.firstChild) ul.removeChild(ul.firstChild);
-    if (!etat) { info.textContent = "En attente de l’ordinateur…"; $("aucunContenu").classList.remove("cache"); return; }
-    info.textContent = etat.pages ? "Page " + etat.page + " sur " + etat.pages : (etat.cur >= 0 ? "Contenu " + (etat.cur + 1) + " sur " + etat.items.length : "Aucun contenu ouvert");
-    $("aucunContenu").classList.toggle("cache", etat.items.length > 0);
+    var info = $("infoEtat"), ul = $("listeOnglets");
+    vider(ul);
+    if (!etat) {
+      info.textContent = "En attente de l’ordinateur…"; $("aucunOnglet").classList.remove("cache");
+      $("barreTexte").classList.add("cache"); return;
+    }
+    var txt = etat.pages ? "Page " + etat.page + " sur " + etat.pages : (etat.cur >= 0 ? "Contenu " + (etat.cur + 1) + " sur " + etat.items.length : "Aucun contenu ouvert");
+    var cour = etat.cur >= 0 ? etat.items[etat.cur] : null;
+    if (cour && !etat.cl && (cour.k === "url" || cour.k === "ecran" || cour.k === "pdf" || cour.k === "image")) {
+      txt += cour.k === "url" ? " · clic impossible sur ce site (laser seulement)" : " · laser seulement";
+    }
+    info.textContent = txt;
+    $("aucunOnglet").classList.toggle("cache", etat.items.length > 0);
     etat.items.forEach(function (it, i) {
-      var li = document.createElement("li"), b = document.createElement("button");
-      b.textContent = it.n; b.setAttribute("aria-current", i === etat.cur ? "true" : "false");
-      b.addEventListener("click", function () { envoyer({ c: "ouvrir", i: i }); });
-      li.appendChild(b); ul.appendChild(li);
+      var li = document.createElement("li");
+      var nom = creerBouton((ICONE_GENRE[it.k] || "•") + " " + (it.o === "tel" ? "📱 " : "🖥️ ") + it.n, "Afficher : " + it.n, function () { envoyer({ c: "ouvrir", i: i }); }, "nom");
+      nom.setAttribute("aria-current", i === etat.cur ? "true" : "false");
+      li.appendChild(nom);
+      li.appendChild(creerBouton("✕", "Fermer : " + it.n, function () { envoyer({ c: "fermer", i: i }); }));
+      ul.appendChild(li);
     });
+    // Barre de saisie : seulement si un champ de texte est actif sur l’écran du PC.
+    var bt = $("barreTexte"), champ = $("champTexte");
+    bt.classList.toggle("cache", !etat.champ);
+    if (etat.champ && document.activeElement !== champ && champ.value !== etat.val) champ.value = etat.val;
   }
 
+  // ---------- Onglets du menu ----------
+  function choisirOnglet(nom) {
+    ["nav", "onglets", "fav", "opt"].forEach(function (n) {
+      $("p-" + n).classList.toggle("cache", n !== nom);
+      var b = document.querySelector('[data-onglet="' + n + '"]'); b.setAttribute("aria-selected", n === nom ? "true" : "false");
+    });
+  }
+  Array.prototype.forEach.call(document.querySelectorAll("[data-onglet]"), function (b) {
+    b.addEventListener("click", function () { choisirOnglet(b.getAttribute("data-onglet")); });
+  });
+
+  // ---------- Boutons de commande ----------
   function lie(id, fn) { $(id).addEventListener("click", fn); }
   lie("bPrec", function () { envoyer({ c: "precedent" }); });
   lie("bSuiv", function () { envoyer({ c: "suivant" }); });
-  lie("bZoomPlus", function () { var z = Math.min(5, ((etat && etat.zoom) || 1) * 1.25); envoyer({ c: "zoom", v: z }); });
-  lie("bZoomMoins", function () { var z = Math.max(0.25, ((etat && etat.zoom) || 1) / 1.25); envoyer({ c: "zoom", v: z }); });
+  lie("bContPrec", function () { envoyer({ c: "contenuPrecedent" }); });
+  lie("bContSuiv", function () { envoyer({ c: "contenuSuivant" }); });
+  lie("bZoomPlus", function () { envoyer({ c: "zoom", v: Math.min(5, ((etat && etat.zoom) || 1) * 1.25) }); });
+  lie("bZoomMoins", function () { envoyer({ c: "zoom", v: Math.max(0.25, ((etat && etat.zoom) || 1) / 1.25) }); });
   lie("bHaut", function () { envoyer({ c: "defiler", dy: -300 }); });
   lie("bBas", function () { envoyer({ c: "defiler", dy: 300 }); });
   lie("bLecture", function () { envoyer({ c: "lecture", on: !(etat && etat.lecture) }); });
@@ -338,11 +408,13 @@
   lie("bSautMoins", function () { envoyer({ c: "saut", v: -10 }); });
   lie("bSautPlus", function () { envoyer({ c: "saut", v: 10 }); });
   lie("bMsg", function () { var t = $("champMsg").value.trim(); if (t) { envoyer({ c: "message", v: t.slice(0, 500) }); $("champMsg").value = ""; } });
-  lie("bUrl", function () {
-    var v = $("champUrl").value.trim();
-    try { var u = new URL(v); if (u.protocol !== "https:") throw new Error("http"); envoyer({ c: "url", v: u.href }); $("champUrl").value = ""; msg("msgGlobal", ""); }
-    catch (er) { msg("msgGlobal", "Saisis une adresse qui commence par https://", true); }
-  });
+  lie("bToutFermer", function () { envoyer({ c: "toutFermer" }); });
+  lie("bClicG", function () { envoyer({ c: "clic", x: lx, y: ly, b: "g" }); });
+  lie("bClicD", function () { envoyer({ c: "clic", x: lx, y: ly, b: "d" }); });
+  lie("bMasquer", function () { $("croix").classList.add("cache"); envoyer({ c: "laser", x: 0, y: 0, on: false }); });
+  lie("bEntree", function () { envoyer({ c: "touche", k: "Entree" }); });
+  $("champTexte").addEventListener("input", function () { envoyer({ c: "texte", v: $("champTexte").value.slice(0, 500) }); });
+  $("champTexte").addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); envoyer({ c: "touche", k: "Entree" }); } });
   lie("bRetourAccueil", function () { afficherAccueil(); });
   lie("bFin", function () {
     if (!session) return;
@@ -350,50 +422,193 @@
     sb.rpc("tv_pair_revoke", { p_id: id }).then(function () { terminerLocalement("Session terminée."); });
   });
 
-  // Pointeur laser : position relative dans la zone, 20 envois par seconde au plus.
-  var pave = $("pave");
-  function posLaser(ev) {
-    var r = pave.getBoundingClientRect();
-    return { x: Math.min(1, Math.max(0, (ev.clientX - r.left) / r.width)), y: Math.min(1, Math.max(0, (ev.clientY - r.top) / r.height)) };
+  // ---------- Adresse d’un site : « https:// » est déjà écrit ----------
+  function adresseSaisie(v) {
+    v = String(v).trim();
+    if (/^http:\/\//i.test(v)) return null;                       // http refusé : seul https est accepté
+    v = v.replace(/^(https:\/\/)+/i, "");
+    if (!v) return null;
+    try { var u = new URL("https://" + v); return u.protocol === "https:" && u.hostname.indexOf(".") > 0 ? u.href : null; } catch (e) { return null; }
   }
+  lie("bUrl", function () {
+    var u = adresseSaisie($("champUrl").value);
+    if (!u) { msg("msgGlobal", "Adresse invalide : écris un site comme https://exemple.fr", true); return; }
+    envoyer({ c: "url", v: u }); $("champUrl").value = "https://"; msg("msgGlobal", "");
+  });
+  $("champUrl").addEventListener("keydown", function (e) { if (e.key === "Enter") $("bUrl").click(); });
+  $("champUrl").addEventListener("focus", function () { if (!$("champUrl").value) $("champUrl").value = "https://"; });
+
+  // ---------- Zone d’aperçu et pointeur laser ----------
+  var pave = $("pave"), croix = $("croix");
+  var depart = null, dernierEnvoiLaser = 0;
+  function ajuster() {                                              // la zone épouse le format de l’écran du PC
+    var c = $("zoneCentre"), cw = c.clientWidth, ch = c.clientHeight; if (!cw || !ch) return;
+    var w = cw / ch > ratioPc ? ch * ratioPc : cw, h = w / ratioPc;
+    pave.style.width = Math.floor(w) + "px"; pave.style.height = Math.floor(h) + "px";
+  }
+  $("apercu").addEventListener("load", function () {
+    var im = $("apercu"); $("apercu").classList.remove("cache"); $("apercuTexte").classList.add("cache");
+    if (im.naturalWidth && im.naturalHeight) { var r = im.naturalWidth / im.naturalHeight; if (Math.abs(r - ratioPc) > 0.01) { ratioPc = r; ajuster(); } }
+  });
+  window.addEventListener("resize", ajuster);
+  window.addEventListener("orientationchange", function () { setTimeout(ajuster, 250); });
+  if (window.ResizeObserver) new ResizeObserver(ajuster).observe($("zoneCentre"));
+
+  function bornes(v) { return Math.min(1, Math.max(0, v)); }
+  function placerCroix() { croix.style.left = (lx * 100) + "%"; croix.style.top = (ly * 100) + "%"; croix.classList.remove("cache"); }
+  function envoyerLaser() { envoyer({ c: "laser", x: lx, y: ly, on: true }); }
+  function posDansZone(ev) { var r = pave.getBoundingClientRect(); return { x: bornes((ev.clientX - r.left) / r.width), y: bornes((ev.clientY - r.top) / r.height) }; }
+  pave.addEventListener("contextmenu", function (e) { e.preventDefault(); });
   pave.addEventListener("pointerdown", function (ev) {
     ev.preventDefault(); try { pave.setPointerCapture(ev.pointerId); } catch (e) { /* rien */ }
-    pave.classList.add("actif"); var p = posLaser(ev); envoyer({ c: "laser", x: p.x, y: p.y, on: true });
+    depart = { t: Date.now(), cx: ev.clientX, cy: ev.clientY, px: ev.clientX, py: ev.clientY, bouge: false };
+    if (prefs.mode === "direct") { var p = posDansZone(ev); lx = p.x; ly = p.y; }
+    placerCroix(); envoyerLaser();
   });
   pave.addEventListener("pointermove", function (ev) {
-    if (!pave.classList.contains("actif")) return;
-    var now = Date.now(); if (now - dernierLaser < DELAI_LASER_MS) return; dernierLaser = now;
-    var p = posLaser(ev); envoyer({ c: "laser", x: p.x, y: p.y, on: true });
+    if (!depart) return;
+    if (Math.abs(ev.clientX - depart.cx) + Math.abs(ev.clientY - depart.cy) > 12) depart.bouge = true;
+    if (prefs.mode === "direct") { var p = posDansZone(ev); lx = p.x; ly = p.y; }
+    else {                                                          // pavé : déplacement relatif, comme un pavé tactile
+      var r = pave.getBoundingClientRect();
+      lx = bornes(lx + (ev.clientX - depart.px) / r.width * GAIN_RELATIF); ly = bornes(ly + (ev.clientY - depart.py) / r.height * GAIN_RELATIF);
+      depart.px = ev.clientX; depart.py = ev.clientY;
+    }
+    placerCroix();
+    var now = Date.now(); if (now - dernierEnvoiLaser < DELAI_LASER_MS) return; dernierEnvoiLaser = now;
+    envoyerLaser();
   });
-  function finLaser() { if (pave.classList.contains("actif")) { pave.classList.remove("actif"); envoyer({ c: "laser", x: 0, y: 0, on: false }); } }
+  function finLaser(ev) {
+    if (!depart) return;
+    var d = depart; depart = null;
+    envoyerLaser();                                                 // position finale exacte ; le laser reste affiché sur le PC
+    if (ev.type === "pointerup" && prefs.tap && !d.bouge && Date.now() - d.t < 300) envoyer({ c: "clic", x: lx, y: ly, b: "g" });
+  }
   pave.addEventListener("pointerup", finLaser);
   pave.addEventListener("pointercancel", finLaser);
+
+  // ---------- Favoris : liens et fichiers gardés sur ce téléphone (IndexedDB) ----------
+  function aleatoire() { var a = new Uint8Array(12); crypto.getRandomValues(a); return Array.prototype.map.call(a, function (x) { return ("0" + x.toString(16)).slice(-2); }).join(""); }
+  function chargerFavoris() {
+    return idbGet("favoris").then(function (l) {
+      favoris = Array.isArray(l) ? l.filter(function (f) { return f && typeof f.nom === "string" && (f.t === "lien" || f.t === "fichier"); }).slice(0, MAX_FAVORIS) : [];
+      dessinerFavoris();
+    });
+  }
+  function sauverFavoris() { return idbPut("favoris", favoris); }
+  function dessinerFavoris() {
+    var ul = $("listeFavoris"); vider(ul);
+    $("aucunFavori").classList.toggle("cache", favoris.length > 0);
+    favoris.forEach(function (f) {
+      var li = document.createElement("li");
+      li.appendChild(creerBouton((f.t === "lien" ? "🔗 " : "📎 ") + f.nom, "Envoyer au PC : " + f.nom, function () { envoyerFavori(f); }, "nom"));
+      li.appendChild(creerBouton("✕", "Retirer des favoris : " + f.nom, function () {
+        favoris = favoris.filter(function (x) { return x.id !== f.id; }); sauverFavoris().then(dessinerFavoris);
+      }));
+      ul.appendChild(li);
+    });
+  }
+  lie("bAjoutLien", function () {
+    var u = adresseSaisie($("favUrl").value);
+    if (!u) { msg("msgGlobal", "Adresse invalide : écris un site comme https://exemple.fr", true); return; }
+    if (favoris.length >= MAX_FAVORIS) { msg("msgGlobal", "Trop de favoris (100 au plus).", true); return; }
+    var nom = $("favNom").value.trim().slice(0, 60) || new URL(u).hostname;
+    favoris.push({ id: aleatoire(), t: "lien", nom: nom, url: u });
+    $("favNom").value = ""; $("favUrl").value = "https://"; msg("msgGlobal", "");
+    sauverFavoris().then(dessinerFavoris);
+  });
+  $("favUrl").addEventListener("focus", function () { if (!$("favUrl").value) $("favUrl").value = "https://"; });
+  lie("bAjoutFichier", function () { $("favFichier").click(); });
+  $("favFichier").addEventListener("change", function (e) {
+    var f = e.target.files[0]; e.target.value = ""; if (!f) return;
+    var ext = (f.name.split(".").pop() || "").toLowerCase(), type = MIME_PAR_EXT[ext];
+    if (!type || f.size > MAX_FICHIER || f.size === 0) { msg("msgGlobal", "Fichier refusé : image, PDF, HTML ou vidéo, 25 Mo au plus.", true); return; }
+    if (favoris.length >= MAX_FAVORIS) { msg("msgGlobal", "Trop de favoris (100 au plus).", true); return; }
+    favoris.push({ id: aleatoire(), t: "fichier", nom: f.name.slice(0, 120), type: type, taille: f.size, blob: f });
+    msg("msgGlobal", ""); sauverFavoris().then(dessinerFavoris);
+  });
+  function pause(ms) { return new Promise(function (ok) { setTimeout(ok, ms); }); }
+  function envoyerFavori(f) {
+    if (f.t === "lien") { envoyer({ c: "url", v: f.url }); return; }
+    if (envoiEnCours) { msg("msgGlobal", "Un envoi est déjà en cours.", true); return; }
+    var id = aleatoire(), annule = false;
+    envoiEnCours = { id: id, annuler: function () { annule = true; } };
+    $("envoi").classList.remove("cache"); $("envoiTexte").textContent = "Préparation de " + f.nom + "…";
+    f.blob.arrayBuffer().then(function (buf) {
+      var blocs = TVTransfert.decouper(new Uint8Array(buf)), n = blocs.length, i = 0;
+      return envoyer({ c: "fichierDebut", id: id, nom: f.nom, type: f.type, taille: buf.byteLength, n: n }).then(function suite() {
+        if (annule || !session) { envoyer({ c: "fichierAnnuler", id: id }); return false; }
+        if (i >= n) return envoyer({ c: "fichierFin", id: id }).then(function () { return true; });
+        return envoyer({ c: "fichierBloc", id: id, i: i, d: blocs[i] }).then(function () {
+          i++; $("envoiTexte").textContent = "Envoi de " + f.nom + " : " + Math.round(i / n * 100) + " %";
+          return pause(PAUSE_BLOC_MS);
+        }).then(suite);
+      });
+    }).then(function (ok) { msg("msgGlobal", ok ? "Fichier envoyé au PC." : "Envoi annulé."); })
+      .catch(function () { msg("msgGlobal", "L’envoi a échoué. Recommence.", true); })
+      .then(function () { envoiEnCours = null; $("envoi").classList.add("cache"); });
+  }
+  lie("bAnnulerEnvoi", function () { if (envoiEnCours) envoiEnCours.annuler(); });
+
+  // ---------- Options ----------
+  $("optCote").addEventListener("change", function () { prefs.cote = $("optCote").value === "gauche" ? "gauche" : "droite"; appliquerPrefs(); ajuster(); });
+  $("optMode").addEventListener("change", function () { prefs.mode = $("optMode").value === "relatif" ? "relatif" : "direct"; appliquerPrefs(); });
+  $("optTap").addEventListener("change", function () { prefs.tap = $("optTap").checked; appliquerPrefs(); });
+  lie("bPleinEcran", function () {
+    try {
+      if (document.fullscreenElement) { document.exitFullscreen(); return; }
+      var el = document.documentElement, p = el.requestFullscreen ? el.requestFullscreen() : null;
+      if (!p) { msg("msgGlobal", "Plein écran indisponible ici (sur iPhone : « Partager → Sur l’écran d’accueil »).", true); return; }
+      p.then(function () { try { screen.orientation.lock("landscape").catch(function () { /* refusé */ }); } catch (e) { /* non géré */ } })
+        .catch(function () { msg("msgGlobal", "Plein écran refusé par le navigateur.", true); });
+    } catch (e) { msg("msgGlobal", "Plein écran indisponible ici.", true); }
+  });
+  // Utilisé par js/maj.js : pas de rechargement automatique pendant une session.
+  window.TV_OCCUPE = function () { return !!session; };
 
   // ============================================================
   // 4) Réglages : durée, export, import, effacement
   // ============================================================
   $("duree").addEventListener("change", function () { ecrire("duree", $("duree").value); });
+  // Export : réglages, préférences de la télécommande et liens favoris (les fichiers favoris restent sur le téléphone).
   $("bExporter").addEventListener("click", function () {
-    var blob = new Blob([JSON.stringify({ application: "tableau-virtuel", version: 1, duree: parseInt($("duree").value, 10) || 480 })], { type: "application/json" });
+    var liens = favoris.filter(function (f) { return f.t === "lien"; }).map(function (f) { return { nom: f.nom, url: f.url }; });
+    var o = { application: "tableau-virtuel", version: 2, duree: parseInt($("duree").value, 10) || 240, prefs: prefs, liens: liens };
+    var blob = new Blob([JSON.stringify(o)], { type: "application/json" });
     var a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "tableau-virtuel-reglages.json";
     document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
   });
   $("bImporter").addEventListener("click", function () { $("fichierImport").click(); });
+  // Import : tout est vérifié avant d’être appliqué (version 1 : durée seule ; version 2 : durée, préférences, liens).
   $("fichierImport").addEventListener("change", function (e) {
     var f = e.target.files[0]; e.target.value = "";
-    if (!f || f.size > 2000) { msg("msgGlobal", "Fichier refusé (trop gros).", true); return; }
+    if (!f || f.size > 40000) { msg("msgGlobal", "Fichier refusé (trop gros).", true); return; }
     f.text().then(function (t) {
-      var o = JSON.parse(t);
-      var cles = Object.keys(o).sort().join(",");
-      if (cles !== "application,duree,version" || o.application !== "tableau-virtuel" || o.version !== 1 ||
-          [120, 240, 480, 720].indexOf(o.duree) < 0) throw new Error("invalide");
-      $("duree").value = String(o.duree); ecrire("duree", String(o.duree)); msg("msgGlobal", "Réglages importés.");
+      var o = JSON.parse(t), cles = Object.keys(o).sort().join(",");
+      if (!o || o.application !== "tableau-virtuel" || [120, 240, 480, 720].indexOf(o.duree) < 0) throw new Error("invalide");
+      var nouveauxLiens = [], p = null;
+      if (o.version === 1 && cles === "application,duree,version") { /* ancien format : durée seule */ }
+      else if (o.version === 2 && cles === "application,duree,liens,prefs,version" && Array.isArray(o.liens) && o.liens.length <= MAX_FAVORIS) {
+        p = nettoyerPrefs(o.prefs); if (!p) throw new Error("invalide");
+        o.liens.forEach(function (l) {
+          var u = l && typeof l.nom === "string" && typeof l.url === "string" ? adresseSaisie(l.url) : null;
+          if (!u) throw new Error("invalide");
+          nouveauxLiens.push({ id: aleatoire(), t: "lien", nom: l.nom.slice(0, 60) || new URL(u).hostname, url: u });
+        });
+      } else throw new Error("invalide");
+      $("duree").value = String(o.duree); ecrire("duree", String(o.duree));
+      if (p) {
+        prefs = p; appliquerPrefs();
+        var fichiers = favoris.filter(function (x) { return x.t === "fichier"; });
+        favoris = nouveauxLiens.concat(fichiers).slice(0, MAX_FAVORIS); sauverFavoris().then(dessinerFavoris);
+      }
+      msg("msgGlobal", "Réglages importés.");
     }).catch(function () { msg("msgGlobal", "Fichier invalide : rien n’a été modifié.", true); });
   });
   $("bEffacer").addEventListener("click", function () {
     if (!confirm("Effacer toutes les données de cet appareil et se déconnecter ?")) return;
-    idbDel("courante");
-    ["duree", "install", "auth"].forEach(retirer);
+    idbDel("courante"); idbDel("favoris"); favoris = [];
+    ["duree", "install", "auth", "prefs"].forEach(retirer);
     try { Object.keys(localStorage).forEach(function (k) { if (k.indexOf(PREFIXE) === 0) localStorage.removeItem(k); }); } catch (e) { /* rien */ }
     deconnecter().then(function () { msg("msgConnexion", "Données effacées."); });
   });

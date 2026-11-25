@@ -17,6 +17,9 @@ Conçu par Tom Rougeaud · réalisé avec l’aide de l’IA (Claude Sonnet 5.5)
 4. Les commandes passent chiffrées de bout en bout (ECDH P-256, AES-256-GCM) par Supabase Realtime.
 5. Le PC vérifie toutes les 4 s que la session est toujours approuvée (révocation, expiration, durée maximale 12 h).
 
+Version 1.1 : télécommande en paysage (aperçu de l’écran + laser en croix rouge, clic gauche/droit, saisie de texte), onglets ouverts (PC et téléphone, fermeture), favoris (liens et fichiers) sur le téléphone, ouverture de sites (YouTube converti en lecteur intégré, sites refusant le cadre : fenêtre ou partage d’onglet), mise à jour automatique (24 h), à la demande ou forcée.
+Pour publier : changer le numéro de version dans `sw.js`, `js/maj.js` et `a-propos.html`.
+
 Détails et choix de sécurité : `CAHIER_DES_CHARGES.md`. Base de données : `supabase/001_tableau_virtuel.sql`.
 
 ## Mise en place

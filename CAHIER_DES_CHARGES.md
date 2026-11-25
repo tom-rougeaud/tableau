@@ -75,3 +75,11 @@ Limites assumées :
 - Pas de fenêtre de fraîcheur des messages (horloges PC/téléphone parfois décalées).
 - pdf.js 3.11 : l’option `isEvalSupported: false` (activée) est le contournement officiel de CVE-2024-4367 ; passer à pdf.js 4.x plus tard.
 - La commande « ouvrir un site » accepte toute adresse https (seul le propriétaire peut l’envoyer).
+
+## 9. Version 1.1 (25/11/2026)
+- Protocole : commandes `clic`, `texte`, `touche`, `fermer`, `toutFermer`, `apercu`, `url`, transfert de fichiers par blocs ; état enrichi (origine PC/téléphone, champ de saisie actif, clic possible).
+- Laser : croix rouge ; clic gauche/droit (boutons ou appui bref), saisie de texte dans les champs.
+- Limites assumées : pas de clic, saisie ni défilement dans un site extérieur (règle du navigateur) ; pas de liste des onglets réels ; sites refusant le cadre → fenêtre ou partage d’onglet.
+- `allow-same-origin` sur les sites ouverts en cadre (corrige l’erreur LockManager du casier) ; les pages HTML locales gardent un cadre sans cette permission.
+- Mises à jour : service worker réseau d’abord, activation immédiate ; recherche toutes les 24 h, à la demande, ou forcée (cache vidé).
+- Non testé : vrais appareils, Realtime réel, partage d’écran (getDisplayMedia), iPhone, clavier du téléphone, gros fichiers.

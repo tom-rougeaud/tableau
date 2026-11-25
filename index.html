@@ -23,7 +23,7 @@
   </header>
 
   <p id="msgGlobal" class="msg" role="status" aria-live="polite"></p>
-  <p id="bandeauMaj" class="msg ok cache">Une nouvelle version est disponible. <button type="button" id="bMaj">Mettre à jour</button></p>
+  <p id="bandeauMaj" class="msg ok cache">Une nouvelle version est disponible. <button type="button" id="bMaj">Mettre à jour maintenant</button></p>
 
   <!-- 1. Connexion -->
   <section id="vueConnexion" class="cache" aria-labelledby="tConnexion">
@@ -90,7 +90,10 @@
         <option value="480">8 heures</option>
         <option value="720">12 heures (maximum)</option>
       </select>
+      <p class="petit js-etat-maj" role="status" aria-live="polite"></p>
       <div class="rangee">
+        <button type="button" class="js-chercher-maj">Rechercher une mise à jour</button>
+        <button type="button" class="js-forcer-maj">Forcer la mise à jour</button>
         <button type="button" id="bInstaller">Installer l’appli</button>
         <button type="button" id="bExporter">Exporter mes réglages</button>
         <button type="button" id="bImporter">Importer</button>
@@ -119,42 +122,93 @@
   </section>
 
   <!-- 5. Télécommande -->
-  <section id="vueTelecommande" class="cache" aria-labelledby="tTele">
-    <div class="carte">
-      <h1 id="tTele">Télécommande</h1>
-      <p class="petit" id="infoEtat">En attente de l’ordinateur…</p>
-      <div class="grille">
-        <button type="button" id="bPrec">◀ Précédent</button>
-        <button type="button" id="bSuiv">Suivant ▶</button>
-        <button type="button" id="bZoomMoins">Zoom −</button>
-        <button type="button" id="bZoomPlus">Zoom +</button>
-        <button type="button" id="bHaut">▲ Défiler</button>
-        <button type="button" id="bBas">▼ Défiler</button>
-        <button type="button" id="bLecture">Lecture / pause</button>
-        <button type="button" id="bNoir">Écran noir</button>
-        <button type="button" id="bSautMoins">⏪ 10 s</button>
-        <button type="button" id="bSautPlus">10 s ⏩</button>
+  <section id="vueTelecommande" class="cache" aria-label="Télécommande">
+    <div id="tele" class="tele">
+      <!-- Aperçu de l’écran du PC : on pose le laser directement dessus -->
+      <div class="zone-laser">
+        <div class="zone-centre" id="zoneCentre">
+          <div id="pave" role="application" aria-label="Aperçu de l’écran de l’ordinateur : touche ou glisse pour placer le laser">
+            <img id="apercu" alt="Aperçu de l’écran de l’ordinateur" class="cache">
+            <p id="apercuTexte">Aperçu de l’écran en cours de chargement…</p>
+            <span id="croix" class="croix cache"></span>
+          </div>
+        </div>
+        <div class="barre-clic">
+          <button type="button" id="bClicG" class="principal">Clic gauche</button>
+          <button type="button" id="bClicD">Clic droit</button>
+          <button type="button" id="bMasquer">Masquer le laser</button>
+        </div>
+        <div id="barreTexte" class="barre-texte cache">
+          <input id="champTexte" type="text" maxlength="500" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Texte à écrire dans le champ affiché sur l’écran">
+          <button type="button" id="bEntree">Entrée</button>
+        </div>
+        <p id="infoEtat" class="petit" role="status" aria-live="polite">En attente de l’ordinateur…</p>
       </div>
-    </div>
-    <div class="carte">
-      <h2>Pointeur laser</h2>
-      <div class="pave" id="pave" role="application" aria-label="Zone du pointeur laser : glisse le doigt">Glisse le doigt ici pour montrer un point à l’écran</div>
-    </div>
-    <div class="carte">
-      <h2>Contenus</h2>
-      <ul class="liste-contenus" id="listeContenus"></ul>
-      <p class="petit" id="aucunContenu">Ajoute des contenus sur l’ordinateur.</p>
-      <label for="champUrl">Ouvrir un site (https)</label>
-      <div class="rangee"><input id="champUrl" type="url" placeholder="https://" autocomplete="off"><button type="button" id="bUrl">Ouvrir</button></div>
-    </div>
-    <div class="carte">
-      <h2>Message à l’écran</h2>
-      <label for="champMsg">Texte (500 caractères au plus)</label>
-      <div class="rangee"><input id="champMsg" type="text" maxlength="500" autocomplete="off"><button type="button" id="bMsg">Envoyer</button></div>
-    </div>
-    <div class="rangee">
-      <button type="button" id="bFin" class="danger">Terminer cette session</button>
-      <button type="button" id="bRetourAccueil">Accueil</button>
+      <!-- Menus -->
+      <div class="menu">
+        <div class="onglets" role="tablist" aria-label="Menus de la télécommande">
+          <button type="button" role="tab" data-onglet="nav" aria-selected="true">Navigation</button>
+          <button type="button" role="tab" data-onglet="onglets" aria-selected="false">Onglets</button>
+          <button type="button" role="tab" data-onglet="fav" aria-selected="false">Favoris</button>
+          <button type="button" role="tab" data-onglet="opt" aria-selected="false">Options</button>
+        </div>
+        <div id="p-nav" class="panneau-menu">
+          <div class="grille">
+            <button type="button" id="bPrec">◀ Précédent</button>
+            <button type="button" id="bSuiv">Suivant ▶</button>
+            <button type="button" id="bContPrec">⏮ Contenu préc.</button>
+            <button type="button" id="bContSuiv">Contenu suiv. ⏭</button>
+            <button type="button" id="bZoomMoins">Zoom −</button>
+            <button type="button" id="bZoomPlus">Zoom +</button>
+            <button type="button" id="bHaut">▲ Défiler</button>
+            <button type="button" id="bBas">▼ Défiler</button>
+            <button type="button" id="bLecture">Lecture / pause</button>
+            <button type="button" id="bNoir">Écran noir</button>
+            <button type="button" id="bSautMoins">⏪ 10 s</button>
+            <button type="button" id="bSautPlus">10 s ⏩</button>
+          </div>
+          <label for="champMsg">Message à l’écran</label>
+          <div class="rangee"><input id="champMsg" type="text" maxlength="500" autocomplete="off"><button type="button" id="bMsg">Envoyer</button></div>
+        </div>
+        <div id="p-onglets" class="panneau-menu cache">
+          <ul class="liste-contenus" id="listeOnglets"></ul>
+          <p class="petit" id="aucunOnglet">Aucun contenu ouvert. Ouvre un site ci-dessous ou ajoute des contenus sur l’ordinateur.</p>
+          <button type="button" id="bToutFermer" class="danger">Tout fermer</button>
+          <label for="champUrl">Ouvrir un site</label>
+          <div class="rangee"><input id="champUrl" type="url" inputmode="url" value="https://" autocomplete="off" autocapitalize="off" spellcheck="false"><button type="button" id="bUrl">Ouvrir</button></div>
+          <p class="petit">« 🖥️ » : ouvert depuis le PC · « 📱 » : ouvert depuis le téléphone. Certains sites (YouTube, Google…) refusent l’affichage : utilise alors « Afficher un onglet du navigateur » sur le PC.</p>
+        </div>
+        <div id="p-fav" class="panneau-menu cache">
+          <ul class="liste-contenus" id="listeFavoris"></ul>
+          <p class="petit" id="aucunFavori">Aucun favori. Ajoute un lien ou un fichier ci-dessous : ils restent sur ce téléphone.</p>
+          <div id="envoi" class="cache"><p id="envoiTexte" class="petit" role="status"></p><button type="button" id="bAnnulerEnvoi">Annuler l’envoi</button></div>
+          <label for="favNom">Nom du lien (facultatif)</label>
+          <input id="favNom" type="text" maxlength="60" autocomplete="off">
+          <label for="favUrl">Adresse du lien</label>
+          <div class="rangee"><input id="favUrl" type="url" inputmode="url" value="https://" autocomplete="off" autocapitalize="off" spellcheck="false"><button type="button" id="bAjoutLien">Ajouter</button></div>
+          <div class="rangee"><button type="button" id="bAjoutFichier">Ajouter un fichier (image, PDF, HTML, vidéo)</button></div>
+          <input type="file" id="favFichier" class="visuel-cache" accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.html,.htm,.mp4,.webm" autocomplete="off" tabindex="-1" aria-hidden="true">
+          <p class="petit">Appuyer sur un favori l’envoie au PC (25 Mo au plus par fichier).</p>
+        </div>
+        <div id="p-opt" class="panneau-menu cache">
+          <label for="optCote">Boutons et menus</label>
+          <select id="optCote" autocomplete="off"><option value="droite">À droite (laser à gauche)</option><option value="gauche">À gauche (laser à droite)</option></select>
+          <label for="optMode">Laser</label>
+          <select id="optMode" autocomplete="off"><option value="direct">Direct : le laser suit mon doigt</option><option value="relatif">Pavé : le doigt déplace le laser, comme une souris</option></select>
+          <label class="case"><input type="checkbox" id="optTap" autocomplete="off"> Un appui bref = clic gauche</label>
+          <div class="rangee"><button type="button" id="bPleinEcran">Plein écran et paysage</button></div>
+          <h2>Mise à jour</h2>
+          <p class="petit js-etat-maj" role="status" aria-live="polite"></p>
+          <div class="rangee">
+            <button type="button" class="js-chercher-maj">Rechercher une mise à jour</button>
+            <button type="button" class="js-forcer-maj">Forcer la mise à jour</button>
+          </div>
+          <div class="rangee">
+            <button type="button" id="bFin" class="danger">Terminer cette session</button>
+            <button type="button" id="bRetourAccueil">Accueil</button>
+          </div>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -188,7 +242,9 @@
 <script src="js/config.js"></script>
 <script src="js/crypto.js"></script>
 <script src="js/proto.js"></script>
+<script src="js/transfert.js"></script>
 <script src="js/remote.js"></script>
 <script src="js/pwa.js"></script>
+<script src="js/maj.js"></script>
 </body>
 </html>

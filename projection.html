@@ -21,16 +21,35 @@
   <div id="laser" aria-hidden="true"></div>
   <div id="noir" aria-hidden="true"></div>
   <div id="bandeau" role="status"></div>
+  <p id="bandeauMaj" class="cache" role="status">Nouvelle version prête. <button type="button" id="bMaj">Mettre à jour maintenant</button></p>
 
   <!-- Barre d’outils (se masque toute seule) -->
   <div id="barre">
     <button type="button" id="bAjouter">Ajouter des contenus</button>
+    <button type="button" id="bContenus" aria-expanded="false" aria-controls="panneau">Contenus (0)</button>
     <button type="button" id="bPleinEcran">Plein écran</button>
     <button type="button" id="bRattacher">Rattacher le téléphone</button>
     <span class="statut" id="statut">Téléphone non rattaché</span>
     <input type="file" id="fichiers" class="visuel-cache" multiple autocomplete="off" tabindex="-1" aria-hidden="true"
            accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.svg,.mp4,.webm,.ogg,.html,.htm">
   </div>
+
+  <!-- Panneau des contenus ouverts (PC et téléphone) -->
+  <aside id="panneau" class="cache" aria-label="Contenus ouverts">
+    <h2>Contenus ouverts</h2>
+    <ul id="listeContenus" class="liste-panneau"></ul>
+    <p class="petit" id="aucunContenu">Aucun contenu ouvert.</p>
+    <label for="champAdresse">Ajouter un site (https)</label>
+    <div class="rangee"><input id="champAdresse" type="url" value="https://" autocomplete="off"><button type="button" id="bAjouterAdresse">Ajouter</button></div>
+    <p class="petit">Tu peux aussi glisser une adresse ou un fichier sur la page.</p>
+    <button type="button" id="bEcran">Afficher un onglet du navigateur</button>
+    <button type="button" id="bApercu">Aperçu de l’écran sur le téléphone</button>
+    <button type="button" id="bToutFermer" class="danger">Tout fermer</button>
+    <p class="petit js-etat-maj" role="status" aria-live="polite"></p>
+    <button type="button" class="js-chercher-maj">Rechercher une mise à jour</button>
+    <button type="button" class="js-forcer-maj">Forcer la mise à jour</button>
+  </aside>
+  <video id="apercuVideo" class="visuel-cache" muted playsinline aria-hidden="true" tabindex="-1"></video>
 
   <!-- Écran de rattachement : le QR code ne donne JAMAIS le contrôle -->
   <section id="attente" aria-labelledby="titreAttente">
@@ -55,6 +74,9 @@
   <script src="js/config.js"></script>
   <script src="js/crypto.js"></script>
   <script src="js/proto.js"></script>
+  <script src="js/clic.js"></script>
+  <script src="js/transfert.js"></script>
   <script src="js/projection.js"></script>
+  <script src="js/maj.js"></script>
 </body>
 </html>

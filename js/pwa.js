@@ -3,7 +3,6 @@
  * Auteur : Tom Rougeaud · réalisé avec l’aide de l’IA : Claude Sonnet 5.5
  * Licence : CC BY-NC 4.0
  *
- * - enregistre le service worker (fonctionnement hors ligne de l’interface) ;
  * - propose l’installation : Android/Chrome/Edge (invite native), iPhone (étapes) ;
  * - ne propose jamais l’installation pendant que la télécommande est affichée.
  * ============================================================ */
@@ -24,23 +23,7 @@
   var dejaInstallee = (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
   var estIos = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 
-  // ---------- Service worker et message de mise à jour ----------
-  if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("sw.js").then(function (reg) {
-      function proposer(sw) {
-        $("bandeauMaj").classList.remove("cache");
-        $("bMaj").onclick = function () { sw.postMessage("SKIP_WAITING"); };
-      }
-      if (reg.waiting && navigator.serviceWorker.controller) proposer(reg.waiting);
-      reg.addEventListener("updatefound", function () {
-        var nv = reg.installing;
-        if (nv) nv.addEventListener("statechange", function () {
-          if (nv.state === "installed" && navigator.serviceWorker.controller) proposer(nv);
-        });
-      });
-    }).catch(function () { /* hors ligne non disponible : l’appli reste utilisable */ });
-    navigator.serviceWorker.addEventListener("controllerchange", function () { location.reload(); });
-  }
+  // Le service worker et la mise à jour forcée sont gérés par js/maj.js.
 
   // ---------- Fenêtre d’installation ----------
   window.addEventListener("beforeinstallprompt", function (e) { e.preventDefault(); invite = e; });

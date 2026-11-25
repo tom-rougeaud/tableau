@@ -100,7 +100,7 @@
   }
   // Renvoie une promesse de { n, m } ou rejette si invalide.
   function dechiffrer(cle, sens, texte) {
-    if (typeof texte !== "string" || texte.length > 90000) return Promise.reject(new Error("taille"));
+    if (typeof texte !== "string" || texte.length > 400000) return Promise.reject(new Error("taille"));
     var p = texte.split(".");
     if (p.length !== 2) return Promise.reject(new Error("format"));
     return subtle.decrypt({ name: "AES-GCM", iv: unb64u(p[0]), additionalData: enc.encode(sens) }, cle, unb64u(p[1]))
@@ -111,7 +111,20 @@
       });
   }
 
+  // Garde anti-rejeu : un message est accepté une seule fois, et seulement s’il a moins de 30 s de retard
+  // sur le plus récent (le réseau peut livrer deux messages dans un ordre légèrement différent).
+  function garde() {
+    var vus = new Set(), maxN = 0, FENETRE = 30e6;      // n est en « microsecondes » (ms x 1000)
+    return function accepte(n) {
+      if (n < maxN - FENETRE || vus.has(n)) return false;
+      vus.add(n); if (n > maxN) maxN = n;
+      if (vus.size > 3000) vus.forEach(function (v) { if (v < maxN - FENETRE) vus.delete(v); });
+      return true;
+    };
+  }
+
   g.TVCrypto = {
+    garde: garde,
     b64u: b64u, unb64u: unb64u, genPaire: genPaire, pubVersTexte: pubVersTexte,
     genSecret: genSecret, empreinte: empreinte, deriver: deriver,
     chiffrer: chiffrer, dechiffrer: dechiffrer

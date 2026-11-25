@@ -84,7 +84,12 @@ body.projection { background: var(--ardoise-fonce); color: var(--clair); overflo
 #attente .petit { color: #cbd5e1; max-width: 46rem; }
 #attente button { background: transparent; color: var(--clair); border-color: var(--sauge-clair); }
 #vide { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center; padding: 2rem; color: #cbd5e1; pointer-events: none; }
-#laser { position: fixed; z-index: 10; width: 28px; height: 28px; margin: -14px 0 0 -14px; border-radius: 50%; background: rgba(217, 183, 121, .85); border: 3px solid #fff; pointer-events: none; display: none; box-shadow: 0 0 10px rgba(0, 0, 0, .5); }
+#laser { position: fixed; z-index: 10; width: 44px; height: 44px; margin: -22px 0 0 -22px; pointer-events: none; display: none; }
+#laser::before, #laser::after { content: ""; position: absolute; background: #c62828; border-radius: 2px; box-shadow: 0 0 0 1.5px #fff; }
+#laser::before { left: 50%; top: 0; width: 4px; height: 100%; margin-left: -2px; }
+#laser::after { top: 50%; left: 0; height: 4px; width: 100%; margin-top: -2px; }
+#laser.clic { animation: clic .35s ease-out; }
+@keyframes clic { from { transform: scale(1.8); opacity: .5; } to { transform: scale(1); opacity: 1; } }
 #noir { position: fixed; inset: 0; z-index: 15; background: #000; display: none; }
 #bandeau { position: fixed; left: 0; right: 0; bottom: 0; z-index: 12; padding: 1rem 2rem; background: rgba(31, 41, 55, .92); color: #fff; font-size: 2.2rem; text-align: center; display: none; }
 #barre { position: fixed; top: 0; left: 0; right: 0; z-index: 14; display: flex; gap: .5rem; padding: .5rem; background: rgba(31, 41, 55, .9); transition: opacity .3s; }
@@ -92,4 +97,71 @@ body.projection { background: var(--ardoise-fonce); color: var(--clair); overflo
 #barre button { background: transparent; color: var(--clair); border-color: var(--sauge-clair); min-height: 44px; }
 #barre .statut { margin-left: auto; align-self: center; color: var(--sauge-clair); }
 
+#panneau { position: fixed; top: 0; right: 0; bottom: 0; width: min(380px, 92vw); z-index: 16; background: rgba(31, 41, 55, .97); color: var(--clair); padding: 3.5rem 1rem 1rem; overflow: auto; }
+#panneau h2 { color: var(--clair); }
+#panneau label { color: var(--clair); }
+#panneau button { background: transparent; color: var(--clair); border-color: var(--sauge-clair); width: 100%; margin-top: .5rem; }
+#panneau .rangee button { width: auto; margin-top: 0; }
+#panneau button.danger { color: #f0b4b4; border-color: #f0b4b4; }
+#panneau .petit { color: #cbd5e1; }
+.liste-panneau { list-style: none; margin: 0 0 .5rem; padding: 0; }
+.liste-panneau li { display: flex; gap: .3rem; margin-bottom: .3rem; }
+#panneau .liste-panneau button { margin: 0; width: auto; min-width: 44px; }
+#panneau .liste-panneau button.nom { flex: 1; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#panneau .liste-panneau button[aria-current="true"] { background: var(--sauge); border-color: var(--sauge); }
+
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+/* Bandeau de mise à jour forcée (page de projection) */
+#bandeauMaj { position: fixed; top: 0; left: 0; right: 0; z-index: 13; margin: 0; padding: .5rem 1rem; background: #1f3a5f; color: #fff; text-align: center; }
+#bandeauMaj.cache { display: none; }
+
+/* Carte « site qui refuse l’affichage » (PC) */
+.carte-refus { max-width: 40rem; padding: 2rem; text-align: center; color: var(--clair); }
+.carte-refus h2 { color: var(--clair); }
+.carte-refus button { display: block; width: 100%; margin: .6rem 0; background: transparent; color: var(--clair); border-color: var(--sauge-clair); font-size: 1.2rem; }
+.carte-refus .petit { color: #cbd5e1; }
+
+/* ---------- Télécommande : aperçu + laser, menus, paysage ---------- */
+body.tele-actif .entete, body.tele-actif .pied { display: none; }
+body.tele-actif .appli { max-width: none; padding: .5rem; }
+.tele { display: flex; flex-direction: column; gap: .5rem; }
+.zone-laser { display: flex; flex-direction: column; gap: .4rem; min-width: 0; }
+.zone-centre { display: flex; align-items: center; justify-content: center; height: min(60vw, 40dvh); background: var(--ardoise-fonce); border-radius: var(--rayon); }
+#pave {
+  position: relative; background: var(--ardoise); color: var(--clair); border-radius: 8px; overflow: hidden;
+  touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; display: flex; align-items: center; justify-content: center; text-align: center;
+}
+#pave img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; pointer-events: none; -webkit-user-drag: none; }
+#apercuTexte { margin: 0; padding: .5rem; }
+.croix { position: absolute; width: 30px; height: 30px; margin: -15px 0 0 -15px; pointer-events: none; }
+.croix::before, .croix::after { content: ""; position: absolute; background: #c62828; border-radius: 2px; box-shadow: 0 0 0 1.5px #fff; }
+.croix::before { left: 50%; top: 0; width: 3px; height: 100%; margin-left: -1.5px; }
+.croix::after { top: 50%; left: 0; height: 3px; width: 100%; margin-top: -1.5px; }
+.barre-clic { display: flex; gap: .4rem; }
+.barre-clic button { flex: 1; min-height: 52px; font-weight: 600; }
+.barre-texte { display: flex; gap: .4rem; }
+.barre-texte input { flex: 1; min-width: 0; font-size: 1rem; }
+.menu { min-width: 0; }
+.onglets { display: flex; gap: .25rem; margin-bottom: .5rem; }
+.onglets button { flex: 1; padding: .4rem .2rem; font-size: .9rem; }
+.onglets button[aria-selected="true"] { background: var(--sauge); border-color: var(--sauge); color: #fff; }
+.panneau-menu { background: #fff; border-radius: var(--rayon); padding: .75rem; }
+.panneau-menu .grille button { min-height: 52px; }
+.liste-contenus li { display: flex; gap: .3rem; margin-bottom: .3rem; }
+.liste-contenus li button { margin-bottom: 0; width: auto; }
+.liste-contenus li button.nom { flex: 1; min-width: 0; }
+label.case { display: flex; align-items: center; gap: .5rem; font-weight: 600; }
+label.case input { width: 1.4rem; height: 1.4rem; }
+@media (orientation: landscape) and (max-height: 640px) {
+  .tele { flex-direction: row; height: calc(100dvh - 1rem); align-items: stretch; }
+  .tele.inverse { flex-direction: row-reverse; }
+  .zone-laser { flex: 1 1 62%; }
+  .zone-centre { flex: 1; height: auto; min-height: 0; }
+  .menu { flex: 0 0 36%; max-width: 360px; overflow-y: auto; }
+  .barre-clic button { min-height: 44px; }
+}
+/* En télécommande, les messages passent par-dessus (ils ne prennent pas de place) */
+body.tele-actif #msgGlobal, body.tele-actif #bandeauMaj { position: fixed; left: .5rem; right: .5rem; bottom: .5rem; z-index: 30; margin: 0; padding: .5rem .75rem; background: #fff; border-radius: 10px; box-shadow: 0 2px 8px rgba(31, 41, 55, .35); }
+body.tele-actif #msgGlobal:empty, body.tele-actif #bandeauMaj.cache { display: none; }
+.onglets button { font-size: .8rem; padding: .4rem .1rem; }
