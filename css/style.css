@@ -225,3 +225,10 @@ body.tele-actif .carte, .tele .carte { border-top: 0; }
 .aide-mfa summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; font-weight: 600; color: var(--sauge); }
 a.bouton { display: inline-flex; align-items: center; text-decoration: none; background: var(--sauge); color: #fff; border-color: var(--sauge); font-weight: 600; }
 #msgMfa.ok, #msgMfa:not(.erreur) { color: var(--sauge); }
+
+/* Logo cliquable = retour au menu */
+.logo-barre { background: rgba(243, 245, 248, .95); border: 0; padding: .2rem .5rem; min-width: 48px; }
+.logo-barre img { height: 34px; width: auto; display: block; }
+.logo-bouton { background: transparent; border: 0; padding: 0; min-height: 0; cursor: pointer; }
+.logo-bouton:focus-visible { outline: 3px solid var(--or); border-radius: 12px; }
+.entete img { cursor: pointer; }

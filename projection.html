@@ -25,6 +25,7 @@
 
   <!-- Barre d’outils (se masque toute seule) -->
   <div id="barre">
+    <button type="button" id="bLogo" class="logo-barre" title="Retour au menu" aria-label="Retour au menu"><img src="img/logo-icone.svg" alt=""></button>
     <button type="button" id="bAjouter">Ajouter des contenus</button>
     <button type="button" id="bContenus" aria-expanded="false" aria-controls="panneau">Contenus (0)</button>
     <button type="button" id="bPleinEcran">Plein écran</button>
@@ -59,7 +60,7 @@
 
   <!-- Écran de rattachement : le QR code ne donne JAMAIS le contrôle -->
   <section id="attente" aria-labelledby="titreAttente">
-    <img class="logo" src="img/logo-icone-nom-une-ligne.svg" alt="Tableau Virtuel">
+    <button type="button" id="bLogoAttente" class="logo-bouton" title="Retour au menu" aria-label="Retour au menu"><img class="logo" src="img/logo-icone-nom-une-ligne.svg" alt="Tableau Virtuel"></button>
     <h1 id="titreAttente">Rattacher le téléphone</h1>
     <img id="qr" class="qr cache" alt="QR code de rattachement">
     <details id="blocLien" class="cache"><summary>Le QR code ne se lit pas ? Afficher le lien</summary><p class="petit lien-qr" id="lienQr"></p></details>
@@ -71,7 +72,8 @@
     <p class="msg" id="msgAttente" role="status"></p>
     <div class="rangee">
       <button type="button" id="bRegenerer">Nouveau code</button>
-      <button type="button" id="bFermerAttente" class="cache">Fermer</button>
+      <button type="button" id="bFermerAttente">Retour au menu</button>
+      <button type="button" id="bDetacher" class="cache">Détacher et rattacher un autre téléphone</button>
     </div>
   </section>
 

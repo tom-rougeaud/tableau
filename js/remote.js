@@ -866,6 +866,13 @@
   // La caméra se coupe dès que l’appli passe en arrière-plan.
   document.addEventListener("visibilitychange", function () { if (document.hidden && scan.actif) quitterScan(); });
 
+  // Un appui sur le logo ramène à l’accueil (sauf pendant la connexion ou la télécommande).
+  document.querySelector(".entete img").addEventListener("click", function () {
+    var v = document.body.getAttribute("data-vue");
+    if (v === "scanner") { quitterScan(); return; }
+    if (v === "rattacher") { $("bDifferents").click(); return; }
+    if (v === "accueil" || v === "connexion" || v === "mfa" || v === "telecommande") return;
+  });
   window.addEventListener("error", function () { msg("msgGlobal", "Un problème est survenu, recommence.", true); });
 
   sb.auth.getSession().then(function (r) {

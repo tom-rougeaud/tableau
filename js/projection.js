@@ -531,7 +531,9 @@
   // ============================================================
   function afficherAttente(oui) {
     attente.style.display = oui ? "flex" : "none";
-    $("bFermerAttente").classList.toggle("cache", !(oui && contenus.length));
+    $("bFermerAttente").classList.toggle("cache", !oui);   // toujours une porte de sortie
+    $("bRegenerer").classList.remove("cache"); $("aide").classList.remove("cache");
+    if (!oui) $("bDetacher").classList.add("cache");
   }
 
   // Arrête tout et efface les clés (fin de session, révocation, expiration).
@@ -645,11 +647,26 @@
     else if (el.requestFullscreen) el.requestFullscreen().catch(function () { /* refusé */ });
   });
   $("bRattacher").addEventListener("click", function () {
-    if (pairage && pairage.approuve) { afficherAttente(true); return; }
+    if (pairage && pairage.approuve) {
+      // Déjà rattaché : on ne casse rien, on propose de revenir ou de détacher.
+      $("qr").classList.add("cache"); $("blocCode").classList.add("cache"); $("blocLien").classList.add("cache");
+      msgAttente("Un téléphone est déjà rattaché. Tu peux revenir au menu sans rien changer.");
+      afficherAttente(true);
+      $("bDetacher").classList.remove("cache"); $("bRegenerer").classList.add("cache"); $("aide").classList.add("cache"); return;
+    }
     demarrerRattachement();
   });
   $("bRegenerer").addEventListener("click", demarrerRattachement);
   $("bFermerAttente").addEventListener("click", function () { afficherAttente(false); });
+  $("bDetacher").addEventListener("click", function () { demarrerRattachement(); });
+  // Retour au menu en toutes circonstances : logo (barre ou écran d’attente) et touche Échap.
+  function retourMenu() {
+    afficherAttente(false); panneau.classList.add("cache"); $("bContenus").setAttribute("aria-expanded", "false");
+    reveillerBarre();
+  }
+  $("bLogo").addEventListener("click", retourMenu);
+  $("bLogoAttente").addEventListener("click", retourMenu);
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape" && attente.style.display !== "none") retourMenu(); });
   $("bAjouterAdresse").addEventListener("click", function () { if (ajouterAdresse($("champAdresse").value, "pc")) $("champAdresse").value = "https://"; });
   // « https:// » reste écrit dans le champ ; un lien collé est nettoyé.
   $("champAdresse").addEventListener("input", function () {
