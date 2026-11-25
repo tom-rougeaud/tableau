@@ -20,6 +20,7 @@
 <div class="appli">
   <header class="entete">
     <img src="img/logo-icone-nom-une-ligne.svg" alt="Tableau Virtuel">
+    <p class="slogan">Ta classe au bout du doigt</p>
   </header>
 
   <p id="msgGlobal" class="msg" role="status" aria-live="polite"></p>
@@ -65,12 +66,12 @@
   <section id="vueAccueil" class="cache" aria-labelledby="tAccueil">
     <div class="carte">
       <h1 id="tAccueil">Rattacher un ordinateur</h1>
-      <ol>
+      <ol class="etapes">
         <li>Sur l’ordinateur, ouvre la page de projection.</li>
         <li>Appuie sur « Scanner le QR code » et vise l’écran de l’ordinateur.</li>
         <li>Compare le code de contrôle, puis confirme ici.</li>
       </ol>
-      <button type="button" class="principal" id="bScanner">Scanner le QR code</button>
+      <button type="button" class="principal gros" id="bScanner"><span aria-hidden="true">▣</span> Scanner le QR code</button>
       <p class="petit">Le QR code seul ne permet jamais de piloter l’ordinateur : il faut ce téléphone connecté et vérifié.</p>
     </div>
     <div class="carte">

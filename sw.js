@@ -6,7 +6,7 @@
  * Met en cache les fichiers de l’interface (jamais les échanges avec Supabase).
  * À CHAQUE MISE À JOUR : changer VERSION, sinon les anciens fichiers restent servis.
  * ============================================================ */
-var VERSION = "tv-cache-1.3.1";
+var VERSION = "tv-cache-1.4.0";
 var FICHIERS = [
   "./", "index.html", "projection.html", "viewer.html", "a-propos.html", "confidentialite.html",
   "manifest.webmanifest", "css/style.css",
