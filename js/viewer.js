@@ -15,9 +15,9 @@
 
   // Script ajouté à la page locale : il copie les 3 fonctions de clic.js puis écoute le PC.
   var AIDE = "<scr" + "ipt>(function(){" +
-    [TVClic.cliquerDans, TVClic.ecrireDans, TVClic.toucherDans].map(function (f) { return f.toString(); }).join(";") +
+    [TVClic.cliquerDans, TVClic.ecrireDans, TVClic.toucherDans, TVClic.defilerDans].map(function (f) { return f.toString(); }).join(";") +
     ";addEventListener('message',function(e){var m=e.data||{};try{" +
-    "if(m.t==='defiler'&&typeof m.dy==='number'){scrollBy(0,m.dy);}" +
+    "if(m.t==='defiler'&&typeof m.dy==='number'){defilerDans(window,typeof m.x==='number'?m.x:0.5,typeof m.y==='number'?m.y:0.5,m.dy);}" +
     "if(m.t==='clic'){var r=cliquerDans(window,m.x,m.y,m.b);parent.postMessage({t:'champ',champ:r.champ,val:r.val},'*');}" +
     "if(m.t==='texte'&&typeof m.v==='string'){ecrireDans(window,m.v);}" +
     "if(m.t==='touche'){toucherDans(window,m.k);}" +

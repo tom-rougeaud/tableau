@@ -55,5 +55,20 @@
     }
   }
 
-  g.TVClic = { cliquerDans: cliquerDans, ecrireDans: ecrireDans, toucherDans: toucherDans };
+  // Fait défiler la zone sous le pointeur (x, y de 0 à 1) : on remonte de l’élément touché jusqu’au premier
+  // parent qui défile (fenêtre modale, liste, panneau…), sinon la page entière. Évite de faire défiler l’arrière-plan.
+  function defilerDans(w, x, y, dy) {
+    var d = w.document, el = d.elementFromPoint(Math.round(x * w.innerWidth), Math.round(y * w.innerHeight));
+    while (el && el !== d.documentElement) {
+      var oy = w.getComputedStyle(el).overflowY;
+      if ((oy === "auto" || oy === "scroll" || oy === "overlay") && el.scrollHeight > el.clientHeight + 1) {
+        var avant = el.scrollTop; el.scrollTop = avant + dy;
+        if (el.scrollTop !== avant) return true;               // cette zone a bougé : terminé
+      }
+      el = el.parentElement;                                    // au bout de course : on essaie le parent
+    }
+    w.scrollBy(0, dy); return true;
+  }
+
+  g.TVClic = { cliquerDans: cliquerDans, ecrireDans: ecrireDans, toucherDans: toucherDans, defilerDans: defilerDans };
 })(self);

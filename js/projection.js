@@ -311,7 +311,9 @@
     var c = contenuCourant(); if (!c) return false;
     return c.k === "html" || (c.k === "url" && c.direct === true);
   }
+  var dernierLaser = { x: 0.5, y: 0.5 };   // dernière position du pointeur : sert au défilement sous le laser
   function positionLaser(x, y) {
+    dernierLaser = { x: x, y: y };
     laser.style.left = (x * 100) + "vw"; laser.style.top = (y * 100) + "vh"; laser.style.display = "block";
     clearTimeout(minuteurLaser); minuteurLaser = setTimeout(function () { laser.style.display = "none"; }, DUREE_LASER_MS);
   }
@@ -370,9 +372,10 @@
       case "noir": ecranNoir = m.on; noir.style.display = m.on ? "block" : "none"; break;
       case "apercu": apercuJusqua = m.on ? Date.now() + DUREE_APERCU_MS : 0; break;
       case "defiler":
-        if (c && c.k === "html") relayerHtml({ t: "defiler", dy: m.dy });
-        else if ((w = fenetreDirecte())) { try { w.scrollBy(0, m.dy); } catch (e) { /* rien */ } }
+        if (c && c.k === "html") relayerHtml({ t: "defiler", dy: m.dy, x: dernierLaser.x, y: dernierLaser.y });
+        else if ((w = fenetreDirecte())) { try { TVClic.defilerDans(w, dernierLaser.x, dernierLaser.y, m.dy); } catch (e) { /* rien */ } }
         else if (c && (c.k === "pdf" || c.k === "image")) scene.scrollTop += m.dy;
+        else if (c && c.k === "url" && !c.yt) flash("Ce site ne peut pas défiler à distance (règle du navigateur) : utilise la molette de la souris du PC.");
         break;
       case "message": flash(m.v); break;
       case "url": ajouterAdresse(m.v, "tel"); return;
@@ -497,7 +500,7 @@
     return s;
   }
   function envoyerApercu() {
-    if (!salon || !pairage || !pairage.cles || Date.now() > apercuJusqua || document.hidden || apEnVol) return;
+    if (!salon || !pairage || !pairage.cles || Date.now() > apercuJusqua || apEnVol) return;
     // Si le réseau est encombré (octets en attente dans la connexion), on saute cette image et on allège la suivante.
     var tampon = tamponReseau();
     if (tampon > 150000) { apW = Math.max(480, Math.round(apW * 0.8)); apQ = Math.max(0.4, apQ - 0.05); return; }
@@ -506,7 +509,11 @@
     var ctx = vignette.getContext("2d"), c = contenuCourant();
     ctx.fillStyle = "#1f2937"; ctx.fillRect(0, 0, W, H);
     try {
-      if (captureApercu && apercuVideo.videoWidth) {                       // aperçu complet (onglet partagé)
+      if (document.hidden && !(captureApercu && apercuVideo.videoWidth)) {   // onglet du PC en arrière-plan : on le dit au lieu d’envoyer une vieille image
+        ctx.fillStyle = "#cbd5e1"; ctx.font = "22px system-ui, sans-serif"; ctx.textAlign = "center";
+        ctx.fillText("L’onglet du PC est passé en arrière-plan.", W / 2, H / 2 - 14);
+        ctx.font = "16px system-ui, sans-serif"; ctx.fillText("Reviens sur l’onglet « Tableau Virtuel » (un site a peut-être ouvert un nouvel onglet).", W / 2, H / 2 + 18);
+      } else if (captureApercu && apercuVideo.videoWidth) {                       // aperçu complet (onglet partagé)
         ctx.drawImage(apercuVideo, 0, 0, W, H);
       } else if (c && c.k === "pdf" && scene.querySelector("canvas")) {
         var cv = scene.querySelector("canvas"); dessinerContain(ctx, cv, cv.width, cv.height, W, H);
@@ -537,7 +544,7 @@
   function basculerApercuComplet() {
     if (captureApercu) { arreterCapture(); majBoutonApercu(); envoyerEtatPlusTard(); return; }
     if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) { flash("Ce navigateur ne permet pas l’aperçu complet."); return; }
-    navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 5 }, audio: false, preferCurrentTab: true, selfBrowserSurface: "include" }).then(function (flux) {
+    navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 5 }, audio: false, preferCurrentTab: true, selfBrowserSurface: "include", surfaceSwitching: "exclude" }).then(function (flux) {
       captureApercu = flux; apercuVideo.srcObject = flux; apercuVideo.play().catch(function () { /* rien */ });
       flux.getVideoTracks()[0].addEventListener("ended", function () { arreterCapture(); majBoutonApercu(); envoyerEtatPlusTard(); });
       majBoutonApercu(); envoyerEtatPlusTard();
