@@ -80,10 +80,14 @@
     if (typeof orienter === "function" && prefs) orienter();
     window.scrollTo(0, 0);
   }
+  var minuteurMsg = null;
   function msg(id, texte, erreur) {
     var e = $(id); e.textContent = texte || "";
+    // Le message général disparaît tout seul après 8 s (ou dès qu’on appuie dessus).
+    if (id === "msgGlobal") { clearTimeout(minuteurMsg); if (texte) minuteurMsg = setTimeout(function () { e.textContent = ""; e.className = "msg"; }, 8000); }
     e.className = "msg" + (erreur ? " erreur" : (texte ? " ok" : ""));
   }
+  $("msgGlobal").addEventListener("click", function () { clearTimeout(minuteurMsg); this.textContent = ""; this.className = "msg"; });
   // Traduit les erreurs de la base en phrases simples.
   function phrase(err) {
     var t = (err && (err.message || err)) + "";

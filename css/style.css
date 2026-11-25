@@ -235,3 +235,7 @@ a.bouton { display: inline-flex; align-items: center; text-decoration: none; bac
 .entete { flex-wrap: wrap; }
 .lien-pc { flex: 1 1 100%; color: #fff; background: rgba(255, 255, 255, .14); border: 1px solid rgba(255, 255, 255, .35); border-radius: 999px; padding: .55rem 1rem; min-height: 44px; display: flex; align-items: center; justify-content: center; text-decoration: none; font-weight: 600; }
 .lien-pc:focus-visible { outline: 3px solid var(--or); outline-offset: 2px; }
+
+/* Message général : se ferme en appuyant dessus (✕) ou tout seul après 8 s */
+#msgGlobal:not(:empty) { cursor: pointer; position: relative; padding-right: 2.4rem; }
+#msgGlobal:not(:empty)::after { content: "✕"; position: absolute; right: .8rem; top: 50%; transform: translateY(-50%); font-weight: 700; opacity: .7; }
