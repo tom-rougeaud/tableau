@@ -214,3 +214,7 @@ body.tele-actif .carte, .tele .carte { border-top: 0; }
 #vide { font-size: 1.6rem; background: radial-gradient(ellipse at 50% 40%, #2d3948 0, #1f2937 70%); }
 #barre { backdrop-filter: blur(6px); border-bottom: 1px solid rgba(168, 199, 184, .25); }
 #attente .msg.erreur, #attente .erreur { color: #f2c0c0; }   /* contraste lisible sur fond sombre */
+/* Écran d’attente : défile si l’écran est petit (rien n’est coupé en haut) */
+#attente { overflow-y: auto; justify-content: safe center; }
+#attente img.qr { width: min(38vh, 340px); height: min(38vh, 340px); }
+#attente .logo { height: min(96px, 12vh); }

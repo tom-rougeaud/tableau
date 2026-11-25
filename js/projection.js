@@ -122,9 +122,12 @@
     if (u.protocol !== "https:" || u.username || u.password || u.hostname.indexOf(".") < 0 || contenus.length >= MAX_CONTENUS) {
       flash("Seules les adresses https:// sont acceptées."); return false;
     }
-    var nom = u.hostname, lien = u.href, yt = adresseYoutube(u);
+    var nom = u.hostname.replace(/^www\./, ""), lien = u.href, yt = adresseYoutube(u);
     if (yt === "refus") { flash("YouTube : colle l’adresse d’une vidéo, ou utilise « Afficher un onglet du navigateur »."); return false; }
     var estYt = false;
+    // Pages GitHub : on ajoute le nom du projet (casier, ball…) pour distinguer les applis dans la liste.
+    var seg = u.pathname.split("/")[1];
+    if (seg && /\.github\.io$/.test(u.hostname)) nom += "/" + seg.slice(0, 40);
     if (yt) { lien = yt + "&enablejsapi=1&origin=" + encodeURIComponent(location.origin); nom = "YouTube"; estYt = true; }
     else if (SITES_REFUSANT.test(u.hostname)) flash("Ce site refuse souvent l’affichage dans un cadre. S’il reste vide, utilise « Afficher un onglet du navigateur ».");
     contenus.push({ n: nom.slice(0, 120), k: "url", o: origine, blob: null, url: lien, yt: estYt, ytT: 0 });
