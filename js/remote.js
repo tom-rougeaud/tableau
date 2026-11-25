@@ -125,7 +125,7 @@
     });
   }
   function afficherMfa(creation) {
-    $("blocMfaCreer").classList.toggle("cache", !creation);
+    $("blocMfaCreer").classList.toggle("cache", !creation); $("blocMfaConnu").classList.toggle("cache", creation);
     $("codeMfa").value = ""; msg("msgMfa", "");
     montrer("Mfa"); $("codeMfa").focus();
   }
@@ -135,12 +135,15 @@
       var anciens = ((lf.data && lf.data.all) || []).filter(function (f) { return f.status !== "verified"; });
       return Promise.all(anciens.map(function (f) { return sb.auth.mfa.unenroll({ factorId: f.id }); }));
     }).then(function () {
-      return sb.auth.mfa.enroll({ factorType: "totp", friendlyName: "Tableau Virtuel " + Date.now() });
+      return sb.auth.mfa.enroll({ factorType: "totp", friendlyName: "Tableau Virtuel " + Date.now(), issuer: "Tableau Virtuel" });
     }).then(function (r) {
       if (r.error) throw r.error;
       factorEnCours = r.data.id;
       $("mfaQr").src = r.data.totp.qr_code;
       $("mfaSecret").textContent = r.data.totp.secret;
+      // Lien « otpauth » : ouvre directement l’appli d’authentification du même téléphone (format vérifié).
+      var uri = String(r.data.totp.uri || ""), lienApp = $("mfaOuvrir");
+      if (/^otpauth:\/\/totp\//.test(uri)) { lienApp.href = uri; lienApp.classList.remove("cache"); } else { lienApp.removeAttribute("href"); lienApp.classList.add("cache"); }
       afficherMfa(true);
     });
   }
@@ -150,9 +153,14 @@
     if (!/^[0-9]{6}$/.test(code) || !factorEnCours) { msg("msgMfa", "Saisis les 6 chiffres.", true); return; }
     sb.auth.mfa.challengeAndVerify({ factorId: factorEnCours, code: code }).then(function (r) {
       if (r.error) { msg("msgMfa", "Code incorrect ou expiré.", true); return; }
-      $("mfaQr").removeAttribute("src"); $("mfaSecret").textContent = "";
+      $("mfaQr").removeAttribute("src"); $("mfaSecret").textContent = ""; $("mfaOuvrir").removeAttribute("href");
       return verifierProprietaire();
     }).catch(function (er) { msg("msgMfa", phrase(er), true); });
+  });
+  $("bMfaCopier").addEventListener("click", function () {
+    var cle = $("mfaSecret").textContent;
+    try { navigator.clipboard.writeText(cle).then(function () { msg("msgMfa", "Clé copiée. Colle-la dans l’appli.", false); }, function () { msg("msgMfa", "Copie impossible : sélectionne la clé et copie-la à la main.", true); }); }
+    catch (e) { msg("msgMfa", "Copie impossible : sélectionne la clé et copie-la à la main.", true); }
   });
   $("bMfaRetour").addEventListener("click", deconnecter);
 

@@ -218,3 +218,10 @@ body.tele-actif .carte, .tele .carte { border-top: 0; }
 #attente { overflow-y: auto; justify-content: safe center; }
 #attente img.qr { width: min(38vh, 340px); height: min(38vh, 340px); }
 #attente .logo { height: min(96px, 12vh); }
+
+/* Guide de la double authentification */
+.intro-mfa { background: #eef3f0; border-radius: 12px; padding: .7rem .9rem; }
+.aide-mfa { margin: .75rem 0; }
+.aide-mfa summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; font-weight: 600; color: var(--sauge); }
+a.bouton { display: inline-flex; align-items: center; text-decoration: none; background: var(--sauge); color: #fff; border-color: var(--sauge); font-weight: 600; }
+#msgMfa.ok, #msgMfa:not(.erreur) { color: var(--sauge); }
