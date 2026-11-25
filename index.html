@@ -1,0 +1,194 @@
+<!doctype html>
+<!--
+  Tableau Virtuel — télécommande (téléphone du propriétaire)
+  Auteur : Tom Rougeaud · réalisé avec l’aide de l’IA : Claude Sonnet 5.5 · Licence : CC BY-NC 4.0
+-->
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Tableau Virtuel</title>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src https://*.supabase.co wss://*.supabase.co; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'">
+  <meta name="referrer" content="no-referrer">
+  <meta name="theme-color" content="#334155">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/png" href="img/icone-installation-192.png">
+  <link rel="apple-touch-icon" href="img/apple-touch-icon-180.png">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="appli">
+  <header class="entete">
+    <img src="img/logo-icone-nom-une-ligne.svg" alt="Tableau Virtuel">
+  </header>
+
+  <p id="msgGlobal" class="msg" role="status" aria-live="polite"></p>
+  <p id="bandeauMaj" class="msg ok cache">Une nouvelle version est disponible. <button type="button" id="bMaj">Mettre à jour</button></p>
+
+  <!-- 1. Connexion -->
+  <section id="vueConnexion" class="cache" aria-labelledby="tConnexion">
+    <div class="carte">
+      <h1 id="tConnexion">Connexion</h1>
+      <p class="petit">Espace privé : seul le propriétaire peut se connecter.</p>
+      <form id="formConnexion">
+        <label for="email">Adresse e-mail</label>
+        <input id="email" type="email" autocomplete="username" required>
+        <label for="mdp">Mot de passe</label>
+        <input id="mdp" type="password" autocomplete="current-password" required>
+        <p class="msg erreur" id="msgConnexion" role="alert"></p>
+        <button type="submit" class="principal" id="bConnexion">Se connecter</button>
+      </form>
+    </div>
+  </section>
+
+  <!-- 2. Double authentification -->
+  <section id="vueMfa" class="cache" aria-labelledby="tMfa">
+    <div class="carte">
+      <h1 id="tMfa">Double authentification</h1>
+      <div id="blocMfaCreer" class="cache qr-mfa">
+        <p>Première fois : scanne ce code avec une appli d’authentification (par exemple celle de ton téléphone ou un gestionnaire de mots de passe), puis saisis le code à 6 chiffres.</p>
+        <img id="mfaQr" alt="Code à scanner pour la double authentification">
+        <p class="petit">Si tu ne peux pas scanner, saisis cette clé dans l’appli :</p>
+        <p class="secret-mfa" id="mfaSecret"></p>
+      </div>
+      <form id="formMfa">
+        <label for="codeMfa">Code à 6 chiffres</label>
+        <input id="codeMfa" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required>
+        <p class="msg erreur" id="msgMfa" role="alert"></p>
+        <button type="submit" class="principal">Valider</button>
+        <button type="button" id="bMfaRetour">Retour</button>
+      </form>
+    </div>
+  </section>
+
+  <!-- 3. Accueil -->
+  <section id="vueAccueil" class="cache" aria-labelledby="tAccueil">
+    <div class="carte">
+      <h1 id="tAccueil">Rattacher un ordinateur</h1>
+      <ol>
+        <li>Sur l’ordinateur, ouvre la page de projection.</li>
+        <li>Scanne le QR code avec l’appareil photo de ce téléphone.</li>
+        <li>Compare le code de contrôle, puis confirme ici.</li>
+      </ol>
+      <p class="petit">Le QR code seul ne permet jamais de piloter l’ordinateur : il faut ce téléphone connecté et vérifié.</p>
+    </div>
+    <div class="carte">
+      <h2>Ordinateurs rattachés</h2>
+      <ul class="liste-contenus" id="listePc"></ul>
+      <p class="petit" id="aucunPc">Aucun ordinateur rattaché.</p>
+      <div class="rangee">
+        <button type="button" id="bActualiser">Actualiser</button>
+        <button type="button" id="bToutRevoquer" class="danger">Tout révoquer</button>
+      </div>
+    </div>
+    <div class="carte">
+      <h2>Réglages</h2>
+      <label for="duree">Durée d’une session</label>
+      <select id="duree" autocomplete="off">
+        <option value="120">2 heures</option>
+        <option value="240" selected>4 heures</option>
+        <option value="480">8 heures</option>
+        <option value="720">12 heures (maximum)</option>
+      </select>
+      <div class="rangee">
+        <button type="button" id="bInstaller">Installer l’appli</button>
+        <button type="button" id="bExporter">Exporter mes réglages</button>
+        <button type="button" id="bImporter">Importer</button>
+        <input type="file" id="fichierImport" class="visuel-cache" accept="application/json,.json" autocomplete="off" tabindex="-1" aria-hidden="true">
+      </div>
+      <div class="rangee">
+        <button type="button" id="bEffacer" class="danger">Effacer les données de cet appareil</button>
+        <button type="button" id="bDeconnexion">Se déconnecter</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. Rattachement : comparaison du code de contrôle -->
+  <section id="vueRattacher" class="cache" aria-labelledby="tRattacher">
+    <div class="carte">
+      <h1 id="tRattacher">Vérifie le code</h1>
+      <p>Regarde l’écran de l’ordinateur : il affiche un code à 4 chiffres. Saisis-le ici.</p>
+      <label for="saisieCode">Code vu sur l’ordinateur</label>
+      <input id="saisieCode" type="text" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="off">
+      <p class="msg" id="msgRattacher" role="status"></p>
+      <div class="rangee">
+        <button type="button" class="sauge" id="bIdentiques">Valider et approuver</button>
+        <button type="button" class="danger" id="bDifferents">Annuler</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5. Télécommande -->
+  <section id="vueTelecommande" class="cache" aria-labelledby="tTele">
+    <div class="carte">
+      <h1 id="tTele">Télécommande</h1>
+      <p class="petit" id="infoEtat">En attente de l’ordinateur…</p>
+      <div class="grille">
+        <button type="button" id="bPrec">◀ Précédent</button>
+        <button type="button" id="bSuiv">Suivant ▶</button>
+        <button type="button" id="bZoomMoins">Zoom −</button>
+        <button type="button" id="bZoomPlus">Zoom +</button>
+        <button type="button" id="bHaut">▲ Défiler</button>
+        <button type="button" id="bBas">▼ Défiler</button>
+        <button type="button" id="bLecture">Lecture / pause</button>
+        <button type="button" id="bNoir">Écran noir</button>
+        <button type="button" id="bSautMoins">⏪ 10 s</button>
+        <button type="button" id="bSautPlus">10 s ⏩</button>
+      </div>
+    </div>
+    <div class="carte">
+      <h2>Pointeur laser</h2>
+      <div class="pave" id="pave" role="application" aria-label="Zone du pointeur laser : glisse le doigt">Glisse le doigt ici pour montrer un point à l’écran</div>
+    </div>
+    <div class="carte">
+      <h2>Contenus</h2>
+      <ul class="liste-contenus" id="listeContenus"></ul>
+      <p class="petit" id="aucunContenu">Ajoute des contenus sur l’ordinateur.</p>
+      <label for="champUrl">Ouvrir un site (https)</label>
+      <div class="rangee"><input id="champUrl" type="url" placeholder="https://" autocomplete="off"><button type="button" id="bUrl">Ouvrir</button></div>
+    </div>
+    <div class="carte">
+      <h2>Message à l’écran</h2>
+      <label for="champMsg">Texte (500 caractères au plus)</label>
+      <div class="rangee"><input id="champMsg" type="text" maxlength="500" autocomplete="off"><button type="button" id="bMsg">Envoyer</button></div>
+    </div>
+    <div class="rangee">
+      <button type="button" id="bFin" class="danger">Terminer cette session</button>
+      <button type="button" id="bRetourAccueil">Accueil</button>
+    </div>
+  </section>
+
+  <footer class="pied petit">
+    <a href="a-propos.html">À propos</a> · <a href="confidentialite.html">Confidentialité</a>
+  </footer>
+</div>
+
+<!-- Fenêtre d’installation (accessible : <dialog> gère le focus et la touche Échap) -->
+<dialog id="dlgInstall" aria-labelledby="tInstall">
+  <h2 id="tInstall">Installer l’appli</h2>
+  <p>Ajoute Tableau Virtuel à l’écran d’accueil pour l’ouvrir comme une appli. Rien n’est envoyé à un tiers.</p>
+  <div id="installIos" class="cache">
+    <p>Sur iPhone et iPad (Safari) :</p>
+    <svg width="160" height="60" viewBox="0 0 160 60" role="img" aria-label="Icône Partager : un carré avec une flèche vers le haut">
+      <rect x="10" y="20" width="36" height="34" rx="6" fill="none" stroke="#334155" stroke-width="3"/>
+      <path d="M28 40V6M18 16L28 6L38 16" fill="none" stroke="#334155" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="60" y="38" font-size="14" fill="#334155" font-family="system-ui, sans-serif">Partager</text>
+    </svg>
+    <ol><li>Appuie sur « Partager ».</li><li>Choisis « Sur l’écran d’accueil ».</li><li>Appuie sur « Ajouter ».</li></ol>
+  </div>
+  <p id="installAutre" class="cache petit">Si le bouton ne fait rien, ouvre le menu du navigateur et choisis « Installer l’appli » ou « Ajouter à l’écran d’accueil ».</p>
+  <div class="rangee">
+    <button type="button" class="principal" id="bInstallerOui">Installer l’appli</button>
+    <button type="button" id="bInstallerPlusTard">Plus tard</button>
+    <button type="button" id="bInstallerJamais">Ne plus proposer</button>
+  </div>
+</dialog>
+
+<script src="js/lib/supabase.js"></script>
+<script src="js/config.js"></script>
+<script src="js/crypto.js"></script>
+<script src="js/proto.js"></script>
+<script src="js/remote.js"></script>
+<script src="js/pwa.js"></script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+<!doctype html>
+<!--
+  Tableau Virtuel — cadre isolé pour afficher une page HTML locale
+  Auteur : Tom Rougeaud · réalisé avec l’aide de l’IA : Claude Sonnet 5.5 · Licence : CC BY-NC 4.0
+  Cette page est chargée dans un iframe « sandbox » (sans accès au site) ; elle ne peut
+  contacter aucun serveur (connect-src 'none') : une page locale ne peut rien envoyer ailleurs.
+-->
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cadre</title>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; media-src data: blob:; font-src data:; frame-src 'self'; connect-src 'none'; base-uri 'none'; form-action 'none'">
+</head>
+<body>
+  <iframe id="dedans" title="Contenu" sandbox="allow-scripts"></iframe>
+  <script src="js/viewer.js"></script>
+</body>
+</html>

@@ -1,0 +1,54 @@
+<!doctype html>
+<!--
+  Tableau Virtuel — page « Confidentialité »
+  Auteur : Tom Rougeaud · réalisé avec l’aide de l’IA : Claude Sonnet 5.5 · Licence : CC BY-NC 4.0
+-->
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Confidentialité — Tableau Virtuel</title>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self'; style-src 'self'; base-uri 'none'; form-action 'none'">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<main class="appli">
+  <header class="entete"><img src="img/logo-icone-nom-une-ligne.svg" alt="Tableau Virtuel"></header>
+  <div class="carte">
+    <h1>Confidentialité</h1>
+    <p>Cette appli ne sert pas aux élèves : elle n’enregistre aucune donnée d’élève.</p>
+  </div>
+  <div class="carte">
+    <h2>Ce qui reste sur l’ordinateur</h2>
+    <ul>
+      <li>Les fichiers que tu ajoutes (PDF, images, vidéos, pages HTML) ne sont <strong>jamais envoyés</strong> : ils restent dans la mémoire du navigateur.</li>
+      <li>Ils sont effacés quand la session se termine, est révoquée ou expire.</li>
+    </ul>
+  </div>
+  <div class="carte">
+    <h2>Ce qui passe par le service de relais (Supabase)</h2>
+    <ul>
+      <li>Ton compte (adresse e-mail et mot de passe) et ta double authentification sont gérés par Supabase.</li>
+      <li>Les commandes envoyées au PC passent chiffrées de bout en bout : le relais ne peut pas les lire.</li>
+      <li>Pour limiter les abus, le service garde l’heure des demandes de rattachement et une empreinte non réversible de l’adresse réseau de l’ordinateur. Les demandes anciennes sont supprimées automatiquement (au bout d’un jour).</li>
+    </ul>
+  </div>
+  <div class="carte">
+    <h2>Ce qui reste sur le téléphone</h2>
+    <ul>
+      <li>Le jeton de connexion, les clés de la session en cours (non exportables), et le réglage de durée.</li>
+      <li>Le bouton « Effacer les données de cet appareil » supprime tout et te déconnecte.</li>
+      <li>Le bouton « Exporter mes réglages » crée un fichier qui ne contient que la durée de session. Tu le gardes toi-même.</li>
+    </ul>
+  </div>
+  <div class="carte">
+    <h2>Aussi</h2>
+    <ul>
+      <li>Aucun traceur, aucune publicité, aucun cookie d’analyse.</li>
+      <li>La page est hébergée par GitHub Pages ; GitHub peut voir les adresses des visites de la page, comme pour tout site.</li>
+    </ul>
+  </div>
+  <p class="pied petit"><a href="index.html">Retour</a> · <a href="a-propos.html">À propos</a></p>
+</main>
+</body>
+</html>
