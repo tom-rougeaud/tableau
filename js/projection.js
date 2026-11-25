@@ -29,7 +29,8 @@
   var DUREE_APERCU_MS = 15000;         // l’aperçu s’arrête si le téléphone ne le redemande pas
   var DUREE_LASER_MS = 15000;          // le pointeur reste visible 15 s après le dernier mouvement
   // Sites qui refusent presque toujours d’être affichés dans un cadre.
-  var SITES_REFUSANT = /(^|\.)(google\.[a-z.]+|facebook\.com|instagram\.com|x\.com|twitter\.com|linkedin\.com|netflix\.com|amazon\.[a-z.]+|youtube\.com)$/;
+  // (liste établie par des essais réels : ces sites ont affiché une page blanche dans le cadre)
+  var SITES_REFUSANT = /(^|\.)(google\.[a-z.]+|facebook\.com|instagram\.com|x\.com|twitter\.com|linkedin\.com|netflix\.com|amazon\.[a-z.]+|youtube\.com|lumni\.fr|vikidia\.org|eduscol\.education\.fr|scratch\.mit\.edu|gallica\.bnf\.fr)$/;
 
   // ---------- Éléments de la page ----------
   function $(id) { return document.getElementById(id); }
@@ -197,11 +198,12 @@
       // Sites connus pour refuser tout affichage dans un cadre (Google, YouTube hors vidéo, etc.) :
       // aucune astuce ne contourne ce refus. On affiche donc deux choix qui marchent à coup sûr.
       var hote = ""; try { hote = new URL(c.url).hostname; } catch (e) { /* adresse déjà validée */ }
-      if (SITES_REFUSANT.test(hote)) { scene.appendChild(carteRefus(c, i)); majTout(); return; }
+      if (SITES_REFUSANT.test(hote) && !c.force) { scene.appendChild(carteRefus(c, i)); majTout(); return; }
       var fu = document.createElement("iframe");
       fu.setAttribute("sandbox", "allow-scripts allow-same-origin allow-forms allow-popups allow-presentation");
       fu.setAttribute("allow", "autoplay; fullscreen; encrypted-media; picture-in-picture");
-      fu.setAttribute("referrerpolicy", "no-referrer"); fu.title = c.n; fu.src = c.url;
+      // L’adresse de cette page (sans chemin) doit être transmise : YouTube refuse sinon la vidéo (erreur 153).
+      fu.setAttribute("referrerpolicy", "strict-origin-when-cross-origin"); fu.title = c.n; fu.src = c.url;
       fu.addEventListener("load", function () {
         c.direct = fenetreAccessible(fu) !== null;
         if (c.yt) ytEcoute();                                   // lecteur YouTube : on s’abonne à son état
@@ -215,10 +217,11 @@
   function carteRefus(c, i) {
     var d = document.createElement("div"); d.className = "carte-refus";
     var t = document.createElement("h2"); t.textContent = c.n + " refuse d’être affiché ici";
-    var p = document.createElement("p"); p.textContent = "Ce site interdit l’affichage dans une autre page (protection du site). Deux solutions :";
+    var p = document.createElement("p"); p.textContent = "Ce site interdit en général l’affichage dans une autre page (protection du site). Trois solutions :";
     d.appendChild(t); d.appendChild(p);
     d.appendChild(bouton("Ouvrir dans une fenêtre du navigateur", "Ouvrir " + c.n + " dans une fenêtre", function () { window.open(c.url, "_blank", "noopener,noreferrer"); }));
     d.appendChild(bouton("Afficher un onglet du navigateur (partage)", "Partager un onglet", function () { ajouterEcran(); }));
+    d.appendChild(bouton("Essayer de l’afficher quand même", "Essayer l’affichage dans la page", function () { c.force = true; ouvrir(i); }));
     var q = document.createElement("p"); q.className = "petit";
     q.textContent = "Avec le partage d’onglet, ouvre le site dans un onglet, choisis-le dans la liste : il s’affiche ici, sans cadre.";
     d.appendChild(q); return d;

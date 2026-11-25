@@ -4,7 +4,8 @@
  * Licence : CC BY-NC 4.0
  *
  * « complet » : le site est sur le même domaine que cette appli → clic, saisie et défilement à distance.
- * Sans « complet » : laser seulement, et certains sites refusent l’affichage (fenêtre ou partage d’onglet).
+ * Sans « complet » : laser seulement. Groupes établis par des essais réels (25/11/2026) : les sites du dernier
+ * groupe ont affiché une page blanche dans le cadre → fenêtre séparée ou partage d’onglet.
  * Pour ajouter un site : une ligne { nom, url } dans le bon groupe.
  * ============================================================ */
 window.TV_SUGGESTIONS = {
@@ -38,18 +39,18 @@ window.TV_SUGGESTIONS = {
       { nom: "Maths Snake", url: "https://tom-rougeaud.github.io/maths-snake/" },
       { nom: "Lore Master", url: "https://tom-rougeaud.github.io/loremaster/" }
     ] },
-    { titre: "Vidéo et recherche (laser seulement)", complet: false, sites: [
-      { nom: "YouTube", url: "https://www.youtube.com/" },
-      { nom: "Google", url: "https://www.google.com/" },
+    { titre: "S’affichent dans la page (laser seulement)", complet: false, sites: [
       { nom: "Wikipédia", url: "https://fr.wikipedia.org/" },
-      { nom: "Vikidia (pour les jeunes)", url: "https://fr.vikidia.org/" }
-    ] },
-    { titre: "Ressources pour la classe (laser seulement)", complet: false, sites: [
-      { nom: "Lumni", url: "https://www.lumni.fr/" },
-      { nom: "Éduscol", url: "https://eduscol.education.fr/" },
       { nom: "GeoGebra", url: "https://www.geogebra.org/classic" },
       { nom: "Desmos (calculatrice scientifique)", url: "https://www.desmos.com/scientific" },
-      { nom: "Pix", url: "https://pix.fr/" },
+      { nom: "Pix", url: "https://pix.fr/" }
+    ] },
+    { titre: "Refusent l’affichage : fenêtre ou partage d’onglet", complet: false, sites: [
+      { nom: "YouTube (adresse d’une vidéo : lecteur pilotable)", url: "https://www.youtube.com/" },
+      { nom: "Google", url: "https://www.google.com/" },
+      { nom: "Lumni", url: "https://www.lumni.fr/" },
+      { nom: "Vikidia (pour les jeunes)", url: "https://fr.vikidia.org/" },
+      { nom: "Éduscol", url: "https://eduscol.education.fr/" },
       { nom: "Scratch", url: "https://scratch.mit.edu/" },
       { nom: "Gallica (BnF)", url: "https://gallica.bnf.fr/" }
     ] }
