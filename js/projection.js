@@ -550,6 +550,7 @@
     msgAttente(raison || "", !!raison);
   }
 
+  var renouvAuto = 0;   // nombre de renouvellements automatiques du code à la suite
   function demarrerRattachement() {
     if (pairage && pairage.minuteur) clearTimeout(pairage.minuteur);
     fermerSalon(); pairage = null;
@@ -567,7 +568,7 @@
     }).then(function (res) {
       if (pairage !== p) return;
       if (res.error || !res.data || !res.data.id) {
-        msgAttente(/trop_de_demandes/.test(res.error && res.error.message || "") ? "Trop de demandes. Attends une minute, puis réessaie." : "Le service est injoignable. Vérifie la connexion.", true);
+        msgAttente(/trop_de_demandes/.test(res.error && res.error.message || "") ? "Trop de demandes depuis ce réseau. Attends quelques minutes, puis réessaie." : "Le service est injoignable. Vérifie la connexion.", true);
         return;
       }
       p.id = res.data.id;
@@ -606,13 +607,15 @@
           msgAttente("Saisis ce code sur le téléphone.");
         }).catch(function () { verrouiller("Échange de clés impossible."); });
       } else if (st === "approved" && p.cles && !p.approuve) {
-        p.approuve = true;
+        p.approuve = true; renouvAuto = 0;
         afficherAttente(false); majStatut("Téléphone rattaché"); ouvrirSalon();
         flash("Téléphone rattaché. Pour voir tout l’écran sur le téléphone, appuie sur « Aperçu téléphone » en haut.");
       } else if (st === "revoked") { verrouiller("Session révoquée depuis le téléphone."); return; }
       else if (st === "expired" || st === "unknown") {
         if (p.approuve) { verrouiller("Session expirée."); return; }
-        msgAttente("Code expiré. Appuie sur « Nouveau code ».", true);
+        // Code périmé sans téléphone : on en prépare un nouveau tout seul (4 fois au plus), sans rien à cliquer.
+        if (!p.derive && renouvAuto < 4) { renouvAuto++; demarrerRattachement(); return; }
+        msgAttente("Code expiré. Appuie sur « Nouveau code » pour en obtenir un autre.", true);
         $("qr").classList.add("cache"); $("blocCode").classList.add("cache"); $("blocLien").classList.add("cache"); $("lienQr").textContent = ""; return;
       }
       p.minuteur = setTimeout(function () { boucle(p); }, p.approuve ? DELAI_PULSATION_MS : DELAI_ATTENTE_MS);
@@ -654,9 +657,9 @@
       afficherAttente(true);
       $("bDetacher").classList.remove("cache"); $("bRegenerer").classList.add("cache"); $("aide").classList.add("cache"); return;
     }
-    demarrerRattachement();
+    renouvAuto = 0; demarrerRattachement();
   });
-  $("bRegenerer").addEventListener("click", demarrerRattachement);
+  $("bRegenerer").addEventListener("click", function () { renouvAuto = 0; demarrerRattachement(); });
   $("bFermerAttente").addEventListener("click", function () { afficherAttente(false); });
   $("bDetacher").addEventListener("click", function () { demarrerRattachement(); });
   // Retour au menu en toutes circonstances : logo (barre ou écran d’attente) et touche Échap.

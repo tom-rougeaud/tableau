@@ -88,8 +88,8 @@
   function phrase(err) {
     var t = (err && (err.message || err)) + "";
     if (/non_autorise|permission denied/.test(t)) return "Action refusée : compte non autorisé ou double authentification manquante.";
-    if (/introuvable_ou_expire/.test(t)) return "Ce code a expiré. Demande un nouveau code sur l’ordinateur.";
-    if (/trop_de_demandes/.test(t)) return "Trop de demandes. Attends une minute.";
+    if (/introuvable_ou_expire/.test(t)) return "Ce code a expiré ou a déjà servi. Regarde l’écran de l’ordinateur : un nouveau code s’y affiche, scanne-le.";
+    if (/trop_de_demandes/.test(t)) return "Trop de demandes depuis ce réseau. Attends quelques minutes.";
     if (/Invalid login|invalid_credentials/i.test(t)) return "Adresse ou mot de passe incorrect.";
     if (/Failed to fetch|network/i.test(t)) return "Pas de connexion au service. Vérifie ton réseau.";
     return "Un problème est survenu, recommence.";
