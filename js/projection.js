@@ -442,8 +442,17 @@
       if (m) executer(m);
     }).catch(function () { /* message illisible : ignoré sans bruit */ });
   }
+  // Évite la mise en veille de l’ordinateur pendant la projection (si le navigateur le permet).
+  var veille = null;
+  function garderEveille(oui) {
+    try {
+      if (!oui) { if (veille) { veille.release(); veille = null; } return; }
+      if (navigator.wakeLock && !veille) navigator.wakeLock.request("screen").then(function (w) { veille = w; w.addEventListener("release", function () { veille = null; }); }).catch(function () { /* refusé : rien */ });
+    } catch (e) { /* non géré : rien */ }
+  }
+  document.addEventListener("visibilitychange", function () { if (!document.hidden && pairage && pairage.approuve) garderEveille(true); });
   function ouvrirSalon() {
-    fermerSalon();
+    fermerSalon(); garderEveille(true);
     salon = client().channel(pairage.cles.salon, { config: { broadcast: { self: false } } });
     salon.on("broadcast", { event: "m" }, function (e) { recevoir(e.payload); });
     salon.subscribe(function (s) { if (s === "SUBSCRIBED") envoyerEtat(); });
@@ -524,6 +533,7 @@
 
   // Arrête tout et efface les clés (fin de session, révocation, expiration).
   function verrouiller(raison) {
+    garderEveille(false);
     if (pairage && pairage.minuteur) clearTimeout(pairage.minuteur);
     fermerSalon(); arreterCapture(); majBoutonApercu();
     pairage = null; accepte = TVCrypto.garde(); echecs = 0; transfert = null; apercuJusqua = 0;
@@ -637,6 +647,12 @@
   $("bRegenerer").addEventListener("click", demarrerRattachement);
   $("bFermerAttente").addEventListener("click", function () { afficherAttente(false); });
   $("bAjouterAdresse").addEventListener("click", function () { if (ajouterAdresse($("champAdresse").value, "pc")) $("champAdresse").value = "https://"; });
+  // « https:// » reste écrit dans le champ ; un lien collé est nettoyé.
+  $("champAdresse").addEventListener("input", function () {
+    var c = this, v = c.value;
+    if (v.indexOf("https://") === 0 && v.substr(8, 8).toLowerCase() !== "https://") return;
+    c.value = "https://" + v.replace(/^\s+/, "").replace(/^(https?:\/\/)+/i, "").replace(/^h?t?t?p?s?:?\/{0,2}/i, "");
+  });
   $("champAdresse").addEventListener("keydown", function (e) { if (e.key === "Enter") $("bAjouterAdresse").click(); });
   $("bEcran").addEventListener("click", ajouterEcran);
   $("bApercu").addEventListener("click", basculerApercuComplet);

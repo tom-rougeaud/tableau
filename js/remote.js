@@ -304,7 +304,7 @@
   function ouvrirTelecommande() {
     montrer("Telecommande"); etat = null; accepte = TVCrypto.garde();
     appliquerPrefs(); majEtat(); chargerFavoris(); ajuster();
-    fermerSalon();
+    fermerSalon(); garderEveille(true);
     salon = sb.channel(session.cles.salon, { config: { broadcast: { self: false } } });
     salon.on("broadcast", { event: "m" }, function (e) { recevoir(e.payload); });
     salon.subscribe(function (s) { if (s === "SUBSCRIBED") { envoyer({ c: "etat" }); demanderApercu(); } });
@@ -316,7 +316,17 @@
     }, 12000);
     clearInterval(minuteurApercu); minuteurApercu = setInterval(demanderApercu, APERCU_RELANCE_MS);
   }
+  // Garde l’écran du téléphone allumé pendant le pilotage (si le navigateur le permet).
+  var veille = null;
+  function garderEveille(oui) {
+    try {
+      if (!oui) { if (veille) { veille.release(); veille = null; } return; }
+      if (navigator.wakeLock && !veille) navigator.wakeLock.request("screen").then(function (w) { veille = w; w.addEventListener("release", function () { veille = null; }); }).catch(function () { /* refusé : rien */ });
+    } catch (e) { /* non géré : rien */ }
+  }
+  document.addEventListener("visibilitychange", function () { if (!document.hidden && session) garderEveille(true); });
   function fermerSalon() {
+    garderEveille(false);
     clearInterval(minuteurApercu); minuteurApercu = null;
     if (salon) { try { sb.removeChannel(salon); } catch (e) { /* rien */ } salon = null; }
   }
@@ -454,6 +464,25 @@
     if (!v) return null;
     try { var u = new URL("https://" + v); return u.protocol === "https:" && u.hostname.indexOf(".") > 0 ? u.href : null; } catch (e) { return null; }
   }
+  // « https:// » reste toujours écrit dans le champ : impossible de l’effacer, un lien collé est nettoyé.
+  var PREFIXE_HTTPS = "https://";
+  function fixerPrefixe(champ) {
+    function corriger() {
+      var v = champ.value;
+      if (v.indexOf(PREFIXE_HTTPS) === 0 && v.substr(PREFIXE_HTTPS.length, PREFIXE_HTTPS.length).toLowerCase() !== PREFIXE_HTTPS) return;
+      // On retire tout début « http(s):// » (même partiel ou répété), puis on remet le préfixe unique.
+      var reste = v.replace(/^\s+/, "").replace(/^(https?:\/\/)+/i, "").replace(/^h?t?t?p?s?:?\/{0,2}/i, "");
+      champ.value = PREFIXE_HTTPS + reste;
+      var fin = champ.value.length; try { champ.setSelectionRange(fin, fin); } catch (e) { /* rien */ }
+    }
+    function curseur() { if (champ.selectionStart < PREFIXE_HTTPS.length && champ.selectionStart === champ.selectionEnd) { try { champ.setSelectionRange(PREFIXE_HTTPS.length, PREFIXE_HTTPS.length); } catch (e) { /* rien */ } } }
+    champ.addEventListener("input", corriger);
+    champ.addEventListener("focus", function () { corriger(); setTimeout(curseur, 0); });
+    champ.addEventListener("click", curseur);
+    champ.addEventListener("keyup", curseur);
+    corriger();
+  }
+  fixerPrefixe($("champUrl")); fixerPrefixe($("favUrl"));
   lie("bUrl", function () {
     var u = adresseSaisie($("champUrl").value);
     if (!u) { msg("msgGlobal", "Adresse invalide : écris un site comme https://exemple.fr", true); return; }
