@@ -25,7 +25,7 @@
   var TAILLE_MAX_FICHIER = 300 * 1024 * 1024;
   var TAILLE_MAX_HTML = 5 * 1024 * 1024;
   var SALVE_MAX = 80, SALVE_PAR_SEC = 50;   // limitation des messages reçus
-  var DELAI_APERCU_MS = 600;           // une image d’aperçu toutes les 0,6 s
+  var DELAI_APERCU_MS = 250;           // jusqu’à 4 images par seconde (seulement si l’écran change)
   var DUREE_APERCU_MS = 15000;         // l’aperçu s’arrête si le téléphone ne le redemande pas
   var DUREE_LASER_MS = 15000;          // le pointeur reste visible 15 s après le dernier mouvement
   // Sites qui refusent presque toujours d’être affichés dans un cadre.
@@ -52,7 +52,8 @@
   function client() {
     if (!sb) {
       sb = supabase.createClient(TV_CONFIG.SUPABASE_URL, TV_CONFIG.SUPABASE_ANON_KEY, {
-        auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
+        auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+        realtime: { params: { eventsPerSecond: 40 } }   // 10/s par défaut : trop lent pour le laser et l’aperçu
       });
     }
     return sb;
@@ -464,9 +465,9 @@
     if (salon) { try { client().removeChannel(salon); } catch (e) { /* rien */ } salon = null; }
   }
   function chiffrerEtEnvoyer(objet) {
-    if (!salon || !pairage || !pairage.cles) return;
-    TVCrypto.chiffrer(pairage.cles.clePcVersTel, "pc->tel", objet).then(function (d) {
-      if (salon) salon.send({ type: "broadcast", event: "m", payload: { d: d } });
+    if (!salon || !pairage || !pairage.cles) return Promise.resolve();
+    return TVCrypto.chiffrer(pairage.cles.clePcVersTel, "pc->tel", objet).then(function (d) {
+      if (salon) return salon.send({ type: "broadcast", event: "m", payload: { d: d } });
     });
   }
   function envoyerEtatPlusTard() { clearTimeout(minuteurEtat); minuteurEtat = setTimeout(envoyerEtat, 150); }
@@ -484,9 +485,23 @@
     var s = Math.min(W / sw, H / sh), w = sw * s, h = sh * s;
     ctx.drawImage(src, (W - w) / 2, (H - h) / 2, w, h);
   }
+  // Aperçu adaptatif : plus net quand le réseau suit, plus léger quand il ralentit ; une image à la fois.
+  var apW = 800, apQ = 0.6, apEnVol = false, apEmpreinte = "", apDernier = 0, apPetit = null;
+  // Octets encore en attente d’envoi sur la connexion temps réel (0 si inconnu).
+  function tamponReseau() { try { var ws = client().realtime && client().realtime.conn; return ws && ws.bufferedAmount ? ws.bufferedAmount : 0; } catch (e) { return 0; } }
+  function empreinteVignette() {
+    if (!apPetit) { apPetit = document.createElement("canvas"); apPetit.width = 24; apPetit.height = 14; }
+    var x = apPetit.getContext("2d", { willReadFrequently: true }); x.drawImage(vignette, 0, 0, 24, 14);
+    var d = x.getImageData(0, 0, 24, 14).data, s = "";
+    for (var i = 0; i < d.length; i += 16) s += String.fromCharCode(48 + (d[i] >> 4), 48 + (d[i + 1] >> 4), 48 + (d[i + 2] >> 4));
+    return s;
+  }
   function envoyerApercu() {
-    if (!salon || !pairage || !pairage.cles || Date.now() > apercuJusqua || document.hidden) return;
-    var W = 640, H = Math.max(120, Math.round(W * window.innerHeight / window.innerWidth));
+    if (!salon || !pairage || !pairage.cles || Date.now() > apercuJusqua || document.hidden || apEnVol) return;
+    // Si le réseau est encombré (octets en attente dans la connexion), on saute cette image et on allège la suivante.
+    var tampon = tamponReseau();
+    if (tampon > 150000) { apW = Math.max(480, Math.round(apW * 0.8)); apQ = Math.max(0.4, apQ - 0.05); return; }
+    var W = apW, H = Math.max(120, Math.round(W * window.innerHeight / window.innerWidth));
     vignette.width = W; vignette.height = H;
     var ctx = vignette.getContext("2d"), c = contenuCourant();
     ctx.fillStyle = "#1f2937"; ctx.fillRect(0, 0, W, H);
@@ -505,7 +520,18 @@
         if (c) { ctx.font = "15px system-ui, sans-serif"; ctx.fillText("Aperçu complet : bouton « Aperçu de l’écran » sur le PC", W / 2, H / 2 + 18); }
       }
     } catch (e) { /* image non lisible : on envoie le fond */ }
-    chiffrerEtEnvoyer({ c: "image", d: vignette.toDataURL("image/jpeg", 0.5) });
+    // Image identique à la précédente : on n’envoie rien (sauf un battement toutes les 3 s).
+    var emp = empreinteVignette(), maintenant = Date.now();
+    if (emp === apEmpreinte && maintenant - apDernier < 3000) return;
+    apEmpreinte = emp; apDernier = maintenant;
+    var data = vignette.toDataURL("image/jpeg", apQ), t0 = maintenant;
+    apEnVol = true;
+    chiffrerEtEnvoyer({ c: "image", d: data }).catch(function () { /* perdu : la suivante passera */ }).then(function () {
+      apEnVol = false;
+      var dt = Date.now() - t0, tp = tamponReseau();              // durée d’envoi et file d’attente : on adapte la taille
+      if (dt > 500 || tp > 60000) { apW = Math.max(480, Math.round(apW * 0.8)); apQ = Math.max(0.4, apQ - 0.05); }
+      else if (dt < 150 && tp < 5000) { apW = Math.min(1024, Math.round(apW * 1.1)); apQ = Math.min(0.72, apQ + 0.02); }
+    });
   }
   // Partage de l’onglet courant (une validation dans le navigateur) pour un aperçu fidèle de tout l’écran.
   function basculerApercuComplet() {

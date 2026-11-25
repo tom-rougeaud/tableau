@@ -15,7 +15,7 @@
 (function () {
   "use strict";
   if (!("serviceWorker" in navigator)) return;
-  var VERSION_APPLI = "1.6.3", deja = !!navigator.serviceWorker.controller, attente = false;
+  var VERSION_APPLI = "1.7.0", deja = !!navigator.serviceWorker.controller, attente = false;
 
   function occupe() { try { return typeof window.TV_OCCUPE === "function" && window.TV_OCCUPE(); } catch (e) { return false; } }
   function bandeau() {

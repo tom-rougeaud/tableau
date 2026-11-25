@@ -19,7 +19,7 @@
   var PREFIXE = "tv1_";                       // préfixe des clés de stockage (application + version)
   var RE_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
   var RE_PUB = /^[A-Za-z0-9_-]{80,120}$/;
-  var DELAI_LASER_MS = 50;                    // 20 envois par seconde au plus
+  var DELAI_LASER_MS = 33;                    // 30 envois par seconde au plus
   var DELAI_VERIF_MS = 30000;                 // vérification de la session côté base
 
   function $(id) { return document.getElementById(id); }
@@ -62,7 +62,8 @@
 
   // ---------- Client Supabase (session conservée, clé de stockage propre à l’appli) ----------
   var sb = supabase.createClient(TV_CONFIG.SUPABASE_URL, TV_CONFIG.SUPABASE_ANON_KEY, {
-    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storageKey: PREFIXE + "auth" }
+    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storageKey: PREFIXE + "auth" },
+    realtime: { params: { eventsPerSecond: 40 } }   // 10/s par défaut : trop lent pour le laser et l’aperçu
   });
 
   // ---------- État ----------

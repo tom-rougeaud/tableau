@@ -88,7 +88,7 @@
 
   // Image d’aperçu de l’écran du PC (JPEG en texte, affichée telle quelle sur le téléphone).
   function validerImage(m) {
-    if (!m || m.c !== "image" || typeof m.d !== "string" || m.d.length > 180000) return null;
+    if (!m || m.c !== "image" || typeof m.d !== "string" || m.d.length > 260000) return null;
     if (!/^data:image\/jpeg;base64,[A-Za-z0-9+\/]+={0,2}$/.test(m.d)) return null;
     return { c: "image", d: m.d };
   }
