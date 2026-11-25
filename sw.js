@@ -6,12 +6,12 @@
  * Met en cache les fichiers de l’interface (jamais les échanges avec Supabase).
  * À CHAQUE MISE À JOUR : changer VERSION, sinon les anciens fichiers restent servis.
  * ============================================================ */
-var VERSION = "tv-cache-1.2.1";
+var VERSION = "tv-cache-1.3.0";
 var FICHIERS = [
   "./", "index.html", "projection.html", "viewer.html", "a-propos.html", "confidentialite.html",
   "manifest.webmanifest", "css/style.css",
   "js/config.js", "js/crypto.js", "js/proto.js", "js/clic.js", "js/suggestions.js", "js/transfert.js", "js/maj.js", "js/remote.js", "js/projection.js", "js/viewer.js", "js/pwa.js",
-  "js/lib/supabase.js", "js/lib/qrcode.js", "js/lib/pdf.min.js", "js/lib/pdf.worker.min.js",
+  "js/lib/supabase.js", "js/lib/qrcode.js", "js/lib/jsQR.js", "js/lib/pdf.min.js", "js/lib/pdf.worker.min.js",
   "img/logo-icone.svg", "img/logo-icone-nom-une-ligne.svg", "img/icone-installation-192.png",
   "img/icone-installation-512.png", "img/icone-installation-512-maskable.png", "img/apple-touch-icon-180.png"
 ];

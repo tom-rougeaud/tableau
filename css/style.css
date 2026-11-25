@@ -168,3 +168,7 @@ label.case input { width: 1.4rem; height: 1.4rem; }
 body.tele-actif #msgGlobal, body.tele-actif #bandeauMaj { position: fixed; left: .5rem; right: .5rem; bottom: .5rem; z-index: 30; margin: 0; padding: .5rem .75rem; background: #fff; border-radius: 10px; box-shadow: 0 2px 8px rgba(31, 41, 55, .35); }
 body.tele-actif #msgGlobal:empty, body.tele-actif #bandeauMaj.cache { display: none; }
 .onglets button { font-size: .8rem; padding: .4rem .1rem; }
+
+/* Lecteur de QR code intégré (téléphone) */
+.video-scan { width: 100%; max-height: 60vh; background: #111827; border-radius: var(--rayon); object-fit: cover; }
+.lien-qr { word-break: break-all; user-select: all; max-width: 46rem; }

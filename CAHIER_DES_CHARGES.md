@@ -90,3 +90,7 @@ Limites assumées :
 - YouTube intégré pilotable (lecture, pause, ±10 s) par l’API officielle du lecteur.
 - Favoris de départ ajoutés une fois (casier, manuels, TradMaths, Allophones 1, Abel’s Run, YouTube) + suggestions interactives (données dans `js/suggestions.js`).
 - Limite de fond : un site extérieur ne peut être ni cliqué, ni saisi, ni défilé à distance depuis une page web (règle du navigateur). Seuls les sites du même domaine (apps de Tom) et les pages HTML locales sont pilotables à 100 %. Pistes si besoin : proxy de réécriture (serveur à héberger, risque de sécurité) ou bureau à distance.
+
+## 11. Version 1.3 (25/11/2026)
+- Lecteur de QR code intégré au téléphone (bouton « Scanner le QR code ») : BarcodeDetector si disponible, sinon jsQR ; caméra coupée à la réussite, à l’annulation et en arrière-plan ; repli : coller le lien affiché sous le QR code sur le PC. Seul le format `#p=<uuid>.<clé publique>` est accepté.
+- Session fantôme corrigée : à la réouverture, le téléphone ne rouvre la télécommande que si le PC a donné signe de vie (battement `last_seen` < 45 s) et répond sous 12 s ; sinon la session est révoquée et un nouveau rattachement est proposé.

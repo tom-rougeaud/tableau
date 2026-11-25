@@ -31,4 +31,4 @@ Détails et choix de sécurité : `CAHIER_DES_CHARGES.md`. Base de données : `s
 À chaque mise à jour : changer `VERSION` dans `sw.js`.
 
 ## Bibliothèques copiées dans `js/lib/`
-supabase-js (MIT), pdf.js 3.11 (Apache 2.0), qrcode-generator (MIT). Aucun CDN, aucun traceur.
+supabase-js (MIT), pdf.js 3.11 (Apache 2.0), qrcode-generator (MIT), jsQR 1.4.0 (Apache 2.0, lecture du QR code). Aucun CDN, aucun traceur.

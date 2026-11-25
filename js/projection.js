@@ -527,7 +527,7 @@
     laser.style.display = "none"; noir.style.display = "none"; ecranNoir = false;
     toutFermer(); panneau.classList.add("cache");
     majStatut("Téléphone non rattaché");
-    $("qr").classList.add("cache"); $("blocCode").classList.add("cache");
+    $("qr").classList.add("cache"); $("blocCode").classList.add("cache"); $("blocLien").classList.add("cache"); $("lienQr").textContent = "";
     afficherAttente(true);
     msgAttente(raison || "", !!raison);
   }
@@ -557,6 +557,7 @@
       var lien = new URL("index.html", location.href).href + "#p=" + p.id + "." + p.pubTxt;
       var qr = qrcode(0, "M"); qr.addData(lien); qr.make();
       $("qr").src = qr.createDataURL(6, 2); $("qr").classList.remove("cache");
+      $("lienQr").textContent = lien; $("blocLien").classList.remove("cache");   // repli : lien à coller sur le téléphone
       msgAttente("En attente du téléphone… (le code expire dans 3 minutes)");
       boucle(p);
     }).catch(function () { msgAttente("Erreur de préparation. Recharge la page.", true); });
@@ -593,7 +594,7 @@
       else if (st === "expired" || st === "unknown") {
         if (p.approuve) { verrouiller("Session expirée."); return; }
         msgAttente("Code expiré. Appuie sur « Nouveau code ».", true);
-        $("qr").classList.add("cache"); $("blocCode").classList.add("cache"); return;
+        $("qr").classList.add("cache"); $("blocCode").classList.add("cache"); $("blocLien").classList.add("cache"); $("lienQr").textContent = ""; return;
       }
       p.minuteur = setTimeout(function () { boucle(p); }, p.approuve ? DELAI_PULSATION_MS : DELAI_ATTENTE_MS);
     }).catch(function () {

@@ -72,7 +72,7 @@
   var salon = null, etat = null, minuteurVerif = null, factorEnCours = null, essaisCode = 0;
 
   // ---------- Affichage ----------
-  var VUES = ["Connexion", "Mfa", "Accueil", "Rattacher", "Telecommande"];
+  var VUES = ["Connexion", "Mfa", "Accueil", "Scanner", "Rattacher", "Telecommande"];
   function montrer(nom) {
     VUES.forEach(function (v) { $("vue" + v).classList.toggle("cache", v !== nom); });
     document.body.setAttribute("data-vue", nom.toLowerCase());
@@ -185,14 +185,19 @@
     return idbGet("courante").then(function (s) {
       if (s && s.maxUntil > Date.now()) {
         return sb.rpc("tv_list").then(function (l) {
-          var actif = !l.error && (l.data || []).some(function (x) { return x.id === s.id && x.status === "approved"; });
+          var actif = !l.error && (l.data || []).some(function (x) { return x.id === s.id && x.status === "approved" && pcVivant(x); });
           if (actif) { session = s; return ouvrirTelecommande(); }
+          // PC éteint, page fermée ou rechargée : ses clés sont perdues, la session est inutilisable.
+          if (!l.error) sb.rpc("tv_pair_revoke", { p_id: s.id });
+          if (!l.error) msg("msgGlobal", "L’ordinateur n’est plus connecté. Rattache-le de nouveau.", true);
           return idbDel("courante").then(afficherAccueil);
         });
       }
       return afficherAccueil();
     });
   }
+  // Le PC met à jour « last_seen » toutes les 4 s : au-delà de 45 s, il est considéré comme déconnecté.
+  function pcVivant(x) { return !!x.last_seen && (Date.now() - new Date(x.last_seen).getTime()) < 45000; }
   function afficherAccueil() {
     montrer("Accueil");
     var d = lire("duree"); if (d && ["120","240","480","720"].indexOf(d) >= 0) $("duree").value = d;
@@ -304,6 +309,11 @@
     salon.on("broadcast", { event: "m" }, function (e) { recevoir(e.payload); });
     salon.subscribe(function (s) { if (s === "SUBSCRIBED") { envoyer({ c: "etat" }); demanderApercu(); } });
     clearInterval(minuteurVerif); minuteurVerif = setInterval(verifierSession, DELAI_VERIF_MS);
+    // Si le PC ne répond à rien en 12 s, ses clés ne correspondent plus : on repart proprement.
+    var sid = session.id;
+    setTimeout(function () {
+      if (session && session.id === sid && !etat) { sb.rpc("tv_pair_revoke", { p_id: sid }); terminerLocalement("L’ordinateur ne répond pas. Rattache-le de nouveau."); }
+    }, 12000);
     clearInterval(minuteurApercu); minuteurApercu = setInterval(demanderApercu, APERCU_RELANCE_MS);
   }
   function fermerSalon() {
@@ -316,7 +326,9 @@
     sb.rpc("tv_list").then(function (r) {
       if (r.error) return;
       var ok = (r.data || []).some(function (x) { return x.id === session.id && x.status === "approved"; });
+      var vivant = (r.data || []).some(function (x) { return x.id === session.id && pcVivant(x); });
       if (!ok) terminerLocalement("Session terminée.");
+      else if (!vivant) { sb.rpc("tv_pair_revoke", { p_id: session.id }); terminerLocalement("L’ordinateur s’est déconnecté. Rattache-le de nouveau."); }
     });
   }
   function terminerLocalement(texte) {
@@ -688,6 +700,89 @@
     if (h && RE_UUID.test(h[1]) && RE_PUB.test(h[2])) rattachementEnAttente = { id: h[1], pub: h[2] };
     if (location.hash) { try { history.replaceState(null, "", location.pathname); } catch (e) { /* rien */ } }
   })();
+
+  // ============================================================
+  // 4 bis) Lecteur de QR code intégré (caméra de l’appareil, rien n’est enregistré ni envoyé)
+  // ============================================================
+  // Principe : BarcodeDetector si le navigateur l’offre (Android/Chrome), sinon jsQR (iPhone, Firefox…).
+  var scan = { flux: null, actif: false, detecteur: null, canvas: null };
+
+  // Extrait { id, pub } d’un texte (lien complet, « #p=… » ou « id.clé »). Seul ce format est accepté.
+  function lienDepuisTexte(t) {
+    t = String(t || "").trim();
+    if (t.length > 600) return null;
+    var m = t.match(/#p=([0-9a-f-]{36})\.([A-Za-z0-9_-]+)$/) || t.match(/^([0-9a-f-]{36})\.([A-Za-z0-9_-]+)$/);
+    if (m && RE_UUID.test(m[1]) && RE_PUB.test(m[2])) return { id: m[1], pub: m[2] };
+    return null;
+  }
+  // Coupe la caméra et la boucle de lecture.
+  function arreterScan() {
+    scan.actif = false;
+    if (scan.flux) { scan.flux.getTracks().forEach(function (t) { try { t.stop(); } catch (e) { /* rien */ } }); scan.flux = null; }
+    var v = $("videoScan"); if (v) { try { v.pause(); } catch (e) { /* rien */ } v.srcObject = null; }
+  }
+  function quitterScan() { arreterScan(); return afficherAccueil(); }
+  function scanReussi(lien) {
+    arreterScan(); return commencerRattachement(lien);
+  }
+  function ouvrirScan() {
+    montrer("Scanner"); msg("msgScan", "Ouverture de la caméra…"); $("saisieLien").value = "";
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      msg("msgScan", "La caméra n’est pas disponible ici. Colle le lien ci-dessous.", true); return;
+    }
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false }).then(function (flux) {
+      if ($("vueScanner").classList.contains("cache")) { flux.getTracks().forEach(function (t) { t.stop(); }); return; }
+      scan.flux = flux; scan.actif = true;
+      var v = $("videoScan"); v.srcObject = flux; v.setAttribute("playsinline", ""); v.muted = true;
+      return v.play().then(function () {
+        msg("msgScan", "Place le QR code de l’ordinateur dans le cadre.");
+        boucleScan();
+      });
+    }).catch(function (er) {
+      arreterScan();
+      var refus = er && (er.name === "NotAllowedError" || er.name === "SecurityError");
+      msg("msgScan", refus ? "Caméra refusée. Autorise-la dans les réglages du navigateur, ou colle le lien ci-dessous."
+        : "Caméra introuvable. Colle le lien ci-dessous.", true);
+    });
+  }
+  // Lit une image de la caméra environ 6 fois par seconde.
+  function boucleScan() {
+    if (!scan.actif) return;
+    var v = $("videoScan");
+    if (v.readyState >= 2 && v.videoWidth > 0) {
+      lireImageScan(v).then(function (texte) {
+        if (!scan.actif) return;
+        var lien = texte && lienDepuisTexte(texte);
+        if (lien) { scanReussi(lien); return; }
+        if (texte) msg("msgScan", "Ce QR code n’est pas celui du Tableau Virtuel.", true);
+        setTimeout(boucleScan, 160);
+      }).catch(function () { setTimeout(boucleScan, 300); });
+    } else setTimeout(boucleScan, 160);
+  }
+  function lireImageScan(v) {
+    if (window.BarcodeDetector) {
+      try { if (!scan.detecteur) scan.detecteur = new window.BarcodeDetector({ formats: ["qr_code"] }); } catch (e) { scan.detecteur = null; }
+      if (scan.detecteur) return scan.detecteur.detect(v).then(function (r) { return r && r.length ? r[0].rawValue : ""; });
+    }
+    // Repli : jsQR sur une image réduite (largeur 480 px au plus).
+    if (!window.jsQR) return Promise.reject(new Error("pas de lecteur"));
+    if (!scan.canvas) scan.canvas = document.createElement("canvas");
+    var k = Math.min(1, 480 / v.videoWidth), w = Math.round(v.videoWidth * k), h = Math.round(v.videoHeight * k);
+    scan.canvas.width = w; scan.canvas.height = h;
+    var cx = scan.canvas.getContext("2d", { willReadFrequently: true });
+    cx.drawImage(v, 0, 0, w, h);
+    var r = window.jsQR(cx.getImageData(0, 0, w, h).data, w, h, { inversionAttempts: "dontInvert" });
+    return Promise.resolve(r ? r.data : "");
+  }
+  $("bScanner").addEventListener("click", ouvrirScan);
+  $("bScanAnnuler").addEventListener("click", quitterScan);
+  $("bScanLien").addEventListener("click", function () {
+    var lien = lienDepuisTexte($("saisieLien").value);
+    if (!lien) { msg("msgScan", "Ce lien n’est pas valide. Copie-le en entier depuis l’ordinateur.", true); return; }
+    scanReussi(lien);
+  });
+  // La caméra se coupe dès que l’appli passe en arrière-plan.
+  document.addEventListener("visibilitychange", function () { if (document.hidden && scan.actif) quitterScan(); });
 
   window.addEventListener("error", function () { msg("msgGlobal", "Un problème est survenu, recommence.", true); });
 
