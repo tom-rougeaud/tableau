@@ -246,6 +246,9 @@
           <select id="optCote" autocomplete="off"><option value="droite">À droite (laser à gauche)</option><option value="gauche">À gauche (laser à droite)</option></select>
           <label for="optMode">Laser</label>
           <select id="optMode" autocomplete="off"><option value="relatif">Souris : le doigt déplace le laser, sans viser (conseillé)</option><option value="direct">Direct : le laser va là où je touche</option></select>
+          <label for="optSens">Sensibilité de la souris <strong id="valSens">× 1.2</strong></label>
+          <input type="range" id="optSens" min="0.3" max="4" step="0.1" value="1.2" autocomplete="off" aria-describedby="aideSens">
+          <p id="aideSens" class="petit">Plus bas : le pointeur bouge moins vite (plus précis). Plus haut : il traverse l’écran plus vite.</p>
           <label for="optOrient">Orientation de la télécommande</label>
           <select id="optOrient" autocomplete="off"><option value="paysage">Paysage (tourne le téléphone)</option><option value="portrait">Portrait (aperçu pleine largeur)</option></select>
           <p class="petit astuce-gestes">Astuce : pose deux doigts sur l’aperçu et glisse, la page défile sur le PC.</p>

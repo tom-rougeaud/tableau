@@ -301,15 +301,16 @@
   // ---------- Préférences (stockage protégé) ----------
   function nettoyerPrefs(o) {
     if (!o || typeof o !== "object") return null;
-    return { cote: o.cote === "gauche" ? "gauche" : "droite", mode: o.mode === "direct" ? "direct" : "relatif", tap: o.tap === true, orient: o.orient === "portrait" ? "portrait" : "paysage", plein: o.plein !== false };
+    return { cote: o.cote === "gauche" ? "gauche" : "droite", mode: o.mode === "direct" ? "direct" : "relatif", tap: o.tap === true, orient: o.orient === "portrait" ? "portrait" : "paysage", plein: o.plein !== false, sens: (typeof o.sens === "number" && o.sens >= 0.3 && o.sens <= 4) ? o.sens : 1.2 };
   }
   function lirePrefs() {
     var p = null; try { p = nettoyerPrefs(JSON.parse(lire("prefs2") || "null")); } catch (e) { /* valeurs par défaut */ }
-    return p || { cote: "droite", mode: "relatif", tap: false, orient: "paysage", plein: true };
+    return p || { cote: "droite", mode: "relatif", tap: false, orient: "paysage", plein: true, sens: 1.2 };
   }
   function appliquerPrefs() {
     $("tele").classList.toggle("inverse", prefs.cote === "gauche");
     $("optCote").value = prefs.cote; $("optMode").value = prefs.mode; $("optTap").checked = prefs.tap; $("optOrient").value = prefs.orient; $("optPlein").checked = prefs.plein;
+    $("optSens").value = String(prefs.sens); $("valSens").textContent = "× " + prefs.sens.toFixed(1);
     ecrire("prefs2", JSON.stringify(prefs)); orienter();
   }
 
@@ -621,7 +622,7 @@
     var p = posDansZone(ev);
     if (prefs.mode === "direct") { lx = p.x; ly = p.y; }
     else {                                                          // souris : déplacement relatif, sans avoir à viser
-      lx = bornes(lx + (p.x - depart.px) * GAIN_RELATIF); ly = bornes(ly + (p.y - depart.py) * GAIN_RELATIF);
+      lx = bornes(lx + (p.x - depart.px) * GAIN_RELATIF * prefs.sens); ly = bornes(ly + (p.y - depart.py) * GAIN_RELATIF * prefs.sens);
       depart.px = p.x; depart.py = p.y;
     }
     placerCroix();
@@ -736,6 +737,9 @@
 
   // ---------- Options ----------
   $("optCote").addEventListener("change", function () { prefs.cote = $("optCote").value === "gauche" ? "gauche" : "droite"; appliquerPrefs(); ajuster(); });
+  // Sensibilité de la souris : 0,3 (très lent, précis) à 4 (très rapide) ; l’affichage suit le curseur en direct.
+  $("optSens").addEventListener("input", function () { var v = parseFloat($("optSens").value); if (v >= 0.3 && v <= 4) { prefs.sens = v; $("valSens").textContent = "× " + v.toFixed(1); } });
+  $("optSens").addEventListener("change", function () { appliquerPrefs(); });
   $("optMode").addEventListener("change", function () { prefs.mode = $("optMode").value === "relatif" ? "relatif" : "direct"; appliquerPrefs(); });
   $("optTap").addEventListener("change", function () { prefs.tap = $("optTap").checked; appliquerPrefs(); });
   lie("bPleinEcran", function () {
