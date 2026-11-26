@@ -382,7 +382,7 @@
         return;
       }
       var e = TVProto.validerEtat(o.m);
-      if (e) { etat = e; majEtat(); }
+      if (e) { if (etat && etat.cur !== e.cur && zoomLocal > 1) { zoomLocal = 1; appliquerZoomLocal(); } etat = e; majEtat(); }
     }).catch(function () { /* message illisible : ignoré */ });
   }
 
@@ -444,8 +444,31 @@
   lie("bSuiv", function () { envoyer({ c: "suivant" }); });
   lie("bContPrec", function () { envoyer({ c: "contenuPrecedent" }); });
   lie("bContSuiv", function () { envoyer({ c: "contenuSuivant" }); });
-  lie("bZoomPlus", function () { envoyer({ c: "zoom", v: Math.min(5, ((etat && etat.zoom) || 1) * 1.25) }); });
-  lie("bZoomMoins", function () { envoyer({ c: "zoom", v: Math.max(0.25, ((etat && etat.zoom) || 1) / 1.25) }); });
+  // Zoom : un appui zoome l’aperçu du téléphone (autour du laser) ; deux appuis d’affilée zooment aussi la ressource sur le PC.
+  var zoomLocal = 1, zoomOx = 0.5, zoomOy = 0.5, dernierZoom = { sens: 0, t: 0 };
+  var PAS_LOCAL = 1.5, PAS_PC = 1.5;
+  function appliquerZoomLocal() {
+    var v = $("vue"); v.style.setProperty("--z", String(zoomLocal));
+    v.style.setProperty("--ox", (zoomOx * 100) + "%"); v.style.setProperty("--oy", (zoomOy * 100) + "%");
+    $("bZoomMoins").classList.toggle("zoome", zoomLocal > 1); $("bZoomPlus").classList.toggle("zoome", zoomLocal > 1);
+    $("infoZoom").textContent = zoomLocal > 1 ? "Aperçu ×" + (Math.round(zoomLocal * 10) / 10) + " · deux appuis d’affilée sur Zoom zooment aussi le PC" : "";
+  }
+  function zoomer(sens) {
+    var maintenant = Date.now(), double = dernierZoom.sens === sens && maintenant - dernierZoom.t < 700;
+    dernierZoom = { sens: double ? 0 : sens, t: maintenant };
+    if (double) {                                                   // deuxième appui rapide : le PC zoome, l’aperçu local revient à 1
+      zoomLocal = 1; appliquerZoomLocal();
+      var base = (etat && etat.zoom) || 1;
+      envoyer({ c: "zoom", v: sens > 0 ? Math.min(5, base * PAS_PC) : Math.max(0.25, base / PAS_PC) });
+      return;
+    }
+    var nv = sens > 0 ? zoomLocal * PAS_LOCAL : zoomLocal / PAS_LOCAL;
+    nv = Math.min(6, Math.max(1, nv)); if (nv < 1.05) nv = 1;
+    if (zoomLocal === 1 && nv > 1) { zoomOx = lx; zoomOy = ly; }     // le zoom se centre sur le laser
+    zoomLocal = nv; appliquerZoomLocal();
+  }
+  lie("bZoomPlus", function () { zoomer(1); });
+  lie("bZoomMoins", function () { zoomer(-1); });
   lie("bHaut", function () { envoyer({ c: "defiler", dy: -300 }); });
   lie("bBas", function () { envoyer({ c: "defiler", dy: 300 }); });
   lie("bLecture", function () { envoyer({ c: "lecture", on: !(etat && etat.lecture) }); });
@@ -528,6 +551,7 @@
   var depart = null, dernierEnvoiLaser = 0;
   function ajuster() {                                              // la zone épouse le format de l’écran du PC
     orienter();
+    $("tele").style.setProperty("--ratio", String(ratioPc));         // le CSS en déduit la hauteur de l’aperçu en portrait
     var c = $("zoneCentre"), cw = c.clientWidth, ch = c.clientHeight; if (!cw || !ch) return;
     var w = cw / ch > ratioPc ? ch * ratioPc : cw, h = w / ratioPc;
     pave.style.width = Math.floor(w) + "px"; pave.style.height = Math.floor(h) + "px";
@@ -560,19 +584,38 @@
   function envoyerLaser() { envoyer({ c: "laser", x: lx, y: ly, on: true }); }
   // Position du doigt dans la zone, de 0 à 1, dans le repère de l’aperçu (même quand l’affichage est pivoté).
   function posDansZone(ev) {
-    var r = pave.getBoundingClientRect();
-    if (pivotActif) return { x: bornes((ev.clientY - r.top) / r.height), y: bornes((r.right - ev.clientX) / r.width) };
-    return { x: bornes((ev.clientX - r.left) / r.width), y: bornes((ev.clientY - r.top) / r.height) };
+    var r = pave.getBoundingClientRect(), p;
+    if (pivotActif) p = { x: bornes((ev.clientY - r.top) / r.height), y: bornes((r.right - ev.clientX) / r.width) };
+    else p = { x: bornes((ev.clientX - r.left) / r.width), y: bornes((ev.clientY - r.top) / r.height) };
+    if (zoomLocal > 1) p = { x: bornes(zoomOx + (p.x - zoomOx) / zoomLocal), y: bornes(zoomOy + (p.y - zoomOy) / zoomLocal) };   // repère réel de l’écran du PC
+    return p;
   }
   pave.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+  // Défilement à deux doigts : deux doigts qui glissent sur l’aperçu = molette de la souris du PC.
+  var doigts = {}, defilDeuxDoigts = false, defilY = 0, defilCumul = 0, defilDernierEnvoi = 0;
+  var PORTEE_DEFIL = 1200;                                          // un glissement sur toute la hauteur de l’aperçu ≈ 1200 px de page
+  function nbDoigts() { return Object.keys(doigts).length; }
+  function moyenneY() { var s = 0, n = 0; for (var k in doigts) { s += doigts[k]; n++; } return n ? s / n : 0; }
+  function viderDefil() { if (defilCumul) envoyer({ c: "defiler", dy: Math.round(defilCumul) }); defilCumul = 0; }
   pave.addEventListener("pointerdown", function (ev) {
     ev.preventDefault(); try { pave.setPointerCapture(ev.pointerId); } catch (e) { /* rien */ }
+    doigts[ev.pointerId] = posDansZone(ev).y;
+    if (nbDoigts() >= 2) {                                          // deuxième doigt : on passe en défilement, le laser est abandonné
+      defilDeuxDoigts = true; depart = null; defilY = moyenneY(); defilCumul = 0; return;
+    }
+    if (defilDeuxDoigts) return;
     var p0 = posDansZone(ev);
     depart = { t: Date.now(), cx: ev.clientX, cy: ev.clientY, px: p0.x, py: p0.y, bouge: false };
     if (prefs.mode === "direct") { lx = p0.x; ly = p0.y; }
     placerCroix(); envoyerLaser();
   });
   pave.addEventListener("pointermove", function (ev) {
+    if (ev.pointerId in doigts) doigts[ev.pointerId] = posDansZone(ev).y;
+    if (defilDeuxDoigts) {                                          // doigts vers le haut = page qui descend (comme sur le téléphone)
+      var y = moyenneY(); defilCumul += -(y - defilY) * PORTEE_DEFIL; defilY = y;
+      var t = Date.now(); if (t - defilDernierEnvoi >= 60 && Math.abs(defilCumul) >= 8) { defilDernierEnvoi = t; viderDefil(); }
+      return;
+    }
     if (!depart) return;
     if (Math.abs(ev.clientX - depart.cx) + Math.abs(ev.clientY - depart.cy) > 12) depart.bouge = true;
     var p = posDansZone(ev);
@@ -586,6 +629,8 @@
     envoyerLaser();
   });
   function finLaser(ev) {
+    delete doigts[ev.pointerId];
+    if (defilDeuxDoigts) { viderDefil(); if (nbDoigts() === 0) defilDeuxDoigts = false; return; }   // tant qu’un doigt reste, pas de laser
     if (!depart) return;
     var d = depart; depart = null;
     envoyerLaser();                                                 // position finale exacte ; le laser reste affiché sur le PC

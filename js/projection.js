@@ -337,6 +337,13 @@
         zoom = m.v;
         if (c && c.k === "pdf") dessinerPdf();
         else if (c && (c.k === "image" || c.k === "ecran")) { var el = scene.querySelector("img,video"); if (el) el.style.transform = "scale(" + zoom + ")"; }
+        else if (c) {                                                 // site ou page HTML : on agrandit le cadre (même taille visible, contenu zoomé)
+          var fr = scene.querySelector("iframe");
+          if (fr) {
+            fr.style.transformOrigin = "0 0"; fr.style.transform = zoom === 1 ? "" : "scale(" + zoom + ")";
+            fr.style.width = zoom === 1 ? "" : (100 / zoom) + "%"; fr.style.height = zoom === 1 ? "" : (100 / zoom) + "%";
+          }
+        }
         break;
       case "lecture": {
         if (c && c.yt) { ytCmd(m.on ? "playVideo" : "pauseVideo"); break; }

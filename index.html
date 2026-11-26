@@ -168,10 +168,12 @@
       <!-- Aperçu de l’écran du PC : on pose le laser directement dessus -->
       <div class="zone-laser">
         <div class="zone-centre" id="zoneCentre">
-          <div id="pave" role="application" aria-label="Aperçu de l’écran de l’ordinateur : touche ou glisse pour placer le laser">
-            <img id="apercu" alt="Aperçu de l’écran de l’ordinateur" class="cache">
+          <div id="pave" role="application" aria-label="Aperçu de l’écran de l’ordinateur : touche ou glisse pour placer le laser ; deux doigts pour faire défiler la page">
+            <div id="vue">
+              <img id="apercu" alt="Aperçu de l’écran de l’ordinateur" class="cache">
+              <span id="croix" class="croix cache"></span>
+            </div>
             <p id="apercuTexte">Aperçu de l’écran en cours de chargement…</p>
-            <span id="croix" class="croix cache"></span>
           </div>
         </div>
         <div class="barre-clic">
@@ -184,6 +186,7 @@
           <button type="button" id="bEntree">Entrée</button>
         </div>
         <p id="infoEtat" class="petit" role="status" aria-live="polite">En attente de l’ordinateur…</p>
+        <p id="infoZoom" class="petit" role="status" aria-live="polite"></p>
       </div>
       <!-- Menus -->
       <div class="menu">
@@ -244,7 +247,8 @@
           <label for="optMode">Laser</label>
           <select id="optMode" autocomplete="off"><option value="relatif">Souris : le doigt déplace le laser, sans viser (conseillé)</option><option value="direct">Direct : le laser va là où je touche</option></select>
           <label for="optOrient">Orientation de la télécommande</label>
-          <select id="optOrient" autocomplete="off"><option value="paysage">Paysage (tourne le téléphone)</option><option value="portrait">Portrait</option></select>
+          <select id="optOrient" autocomplete="off"><option value="paysage">Paysage (tourne le téléphone)</option><option value="portrait">Portrait (aperçu pleine largeur)</option></select>
+          <p class="petit astuce-gestes">Astuce : pose deux doigts sur l’aperçu et glisse, la page défile sur le PC.</p>
           <label class="case"><input type="checkbox" id="optTap" autocomplete="off"> Un appui bref = clic gauche</label>
           <label class="case"><input type="checkbox" id="optPlein" autocomplete="off"> Plein écran automatique (Android)</label>
           <div class="rangee"><button type="button" id="bPleinEcran">Plein écran et paysage</button></div>
